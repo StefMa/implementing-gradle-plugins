@@ -5,7 +5,7 @@
   <!--[if IE]><meta http-equiv="X-UA-Compatible" content="IE=edge"><![endif]--> 
   <meta name="viewport" content="width=device-width, initial-scale=1.0"> 
   <meta name="generator" content="Asciidoctor 1.5.3"> 
-  <title>Implementing Gradle Plugins</title> 
+  <title>Implementing Gradle plugins</title> 
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.4.0/css/font-awesome.min.css"> 
   <link rel="stylesheet" href="./coderay-asciidoctor.css"> 
   <link rel="stylesheet" href="https://guides.gradle.org/asciidoctor.css"> 
@@ -34,14 +34,15 @@
    <div style="padding-top: 10px;">
     <a href="https://guides.gradle.org"><img src="http://guides.gradle.org/gradle-guides.svg" alt=""></a>
    </div> 
-   <h1>Implementing Gradle Plugins</h1> 
+   <h1>Implementing Gradle plugins</h1> 
    <div id="toc" class="toc2"> 
     <div id="toctitle">
      Table of Contents
     </div> 
     <ul class="sectlevel1"> 
-     <li><a href="#content_tbc">1. CONTENT_TBC</a></li> 
+     <li><a href="#practices">1. Practices</a></li> 
      <li><a href="#summary">2. Summary</a></li> 
+     <li><a href="#next_steps">3. Next steps</a></li> 
     </ul> 
    </div> 
   </div> 
@@ -49,15 +50,386 @@
    <div id="preamble"> 
     <div class="sectionbody"> 
      <div class="paragraph"> 
-      <p><strong>INTRO_TBC</strong></p> 
+      <p>Writing plugin code is a routine activity for advanced build authors. The activity usually involves writing the plugin implementation, creating custom task type for executing desired functionality and making the runtime behavior configurable for the end user by exposing a declarative and expressive DSL. In this guide you will learn established practices to make you a better plugin developer and how make a plugin as accessible and useful for consumers as possible. Please consider working through the guide on <a href="https://guides.gradle.org/designing-gradle-plugins">designing Gradle plugins</a> before reading this guide.</p> 
+     </div> 
+     <div class="paragraph"> 
+      <p>The guide assumes you have:</p> 
+     </div> 
+     <div class="ulist"> 
+      <ul> 
+       <li> <p>Basic understanding of software engineering practices</p> </li> 
+       <li> <p>Knowledge of Gradle fundamentals like project organization, task creation and configuration as well as the Gradle build lifecycle</p> </li> 
+       <li> <p>Working knowledge in writing Java code</p> </li> 
+      </ul> 
+     </div> 
+     <div class="paragraph"> 
+      <p>If you happen to be a beginner to Gradle please start by working through the <a href="https://gradle.org/docs#getting-started">getting started guides on Gradle development</a> first while referencing the <a href="https://docs.gradle.org/current/userguide/userguide.html">Gradle user guide</a> to go deeper.</p> 
      </div> 
     </div> 
    </div> 
    <div class="sect1"> 
-    <h2 id="content_tbc"><a class="anchor" href="#content_tbc"></a>1. CONTENT_TBC</h2> 
+    <h2 id="practices"><a class="anchor" href="#practices"></a>1. Practices</h2> 
     <div class="sectionbody"> 
-     <div class="paragraph"> 
-      <p><strong>TBC</strong></p> 
+     <div class="sect2"> 
+      <h3 id="plugin-development-plugin"><a class="anchor" href="#plugin-development-plugin"></a>1.1. Using the Plugin Development Plugin for writing plugins</h3> 
+      <div class="paragraph"> 
+       <p>Setting up a Gradle plugin project should require as little boilerplate code as possible. The <a href="https://docs.gradle.org/current/userguide/javaGradle_plugin.html">Java Gradle Plugin Development Plugin</a> provides aid in this concern. To get started add the following code to your <em>build.gradle</em> file:</p> 
+      </div> 
+      <div class="listingblock"> 
+       <div class="title">
+        build.gradle
+       </div> 
+       <div class="content"> 
+        <pre class="CodeRay highlight"><code data-lang="groovy">plugins {
+    id <span class="string"><span class="delimiter">'</span><span class="content">java-gradle-plugin</span><span class="delimiter">'</span></span>
+}</code></pre> 
+       </div> 
+      </div> 
+      <div class="paragraph"> 
+       <p>By applying the plugin, necessary plugins are applied and relevant dependencies are added. It also helps with validating the plugin metadata before publishing the binary artifact to the Gradle plugin portal. Every plugin project should apply this plugin.</p> 
+      </div> 
+     </div> 
+     <div class="sect2"> 
+      <h3 id="prefer_writing_and_using_custom_task_types"><a class="anchor" href="#prefer_writing_and_using_custom_task_types"></a>1.2. Prefer writing and using custom task types</h3> 
+      <div class="paragraph"> 
+       <p>Gradle tasks can be defined as <a href="https://docs.gradle.org/current/userguide/tutorial_using_tasks.html#sec:projects_and_tasks">ad-hoc tasks</a>, simple task definitions of type <code>DefaultTask</code> with one or many actions, or as <a href="https://docs.gradle.org/current/userguide/more_about_tasks.html">enhanced tasks</a>, the ones that use a custom task type and expose its configurability with the help of properties. Generally speaking, custom tasks provide the means for reusability, maintainability, configurability and testability. The same principles hold true when providing tasks as part of plugins. Always prefer custom task types over ad-hoc tasks. Consumers of your plugin will also have the chance to reuse the existing task type if they want to add more tasks to the build script.</p> 
+      </div> 
+      <div class="paragraph"> 
+       <p>Let’s say you implemented a plugin that resolves the latest version of a dependency in a binary repository by making HTTP calls by providing a custom task type. The custom task is provided by a plugin that takes care of communicating via HTTP and processing the response in machine-readable format like XML or JSON.</p> 
+      </div> 
+      <div class="listingblock"> 
+       <div class="title">
+        LatestArtifactVersion.java
+       </div> 
+       <div class="content"> 
+        <pre class="CodeRay highlight"><code data-lang="java"><span class="keyword">package</span> <span class="namespace">com.company.gradle.binaryrepo</span>;
+
+<span class="directive">public</span> <span class="type">class</span> <span class="class">LatestArtifactVersion</span> <span class="directive">extends</span> DefaultTask {
+    <span class="directive">private</span> <span class="predefined-type">String</span> coordinates;
+    <span class="directive">private</span> <span class="predefined-type">String</span> serverUrl;
+
+    <span class="annotation">@Input</span>
+    <span class="directive">public</span> <span class="predefined-type">String</span> getCoordinates() {
+        <span class="keyword">return</span> coordinates;
+    }
+
+    <span class="directive">public</span> <span class="type">void</span> setCoordinates(<span class="predefined-type">String</span> coordinates) {
+        <span class="local-variable">this</span>.coordinates = coordinates;
+    }
+
+    <span class="annotation">@Input</span>
+    <span class="directive">public</span> <span class="predefined-type">String</span> getServerUrl() {
+        <span class="keyword">return</span> serverUrl;
+    }
+
+    <span class="directive">public</span> <span class="type">void</span> setServerUrl(<span class="predefined-type">String</span> serverUrl) {
+        <span class="local-variable">this</span>.serverUrl = serverUrl;
+    }
+
+    <span class="annotation">@TaskAction</span>
+    <span class="directive">public</span> <span class="type">void</span> resolveLatestVersion {
+        <span class="comment">// issue HTTP call and parse response</span>
+    }
+}</code></pre> 
+       </div> 
+      </div> 
+      <div class="paragraph"> 
+       <p>The end user of the task can now easily create multiple tasks of that type with different configuration. All the imperative, potentially complex logic is completely hidden in the custom task implementation.</p> 
+      </div> 
+      <div class="listingblock"> 
+       <div class="title">
+        build.gradle
+       </div> 
+       <div class="content"> 
+        <pre class="CodeRay highlight"><code data-lang="groovy">apply <span class="key">plugin</span>: <span class="string"><span class="delimiter">'</span><span class="content">BinaryRepositoryVersion</span><span class="delimiter">'</span></span>
+
+<span class="keyword">import</span> <span class="include">com.company.gradle.binaryrepo.LatestArtifactVersion</span>
+
+task latestVersionMavenCentral(<span class="key">type</span>: LatestArtifactVersion) {
+    coordinates = <span class="string"><span class="delimiter">'</span><span class="content">commons-lang:commons-lang:1.5</span><span class="delimiter">'</span></span>
+    serverUrl = <span class="string"><span class="delimiter">'</span><span class="content">http://repo1.maven.org/maven2/</span><span class="delimiter">'</span></span>
+}
+
+task latestVersionInhouseRepo(<span class="key">type</span>: LatestArtifactVersion) {
+    coordinates = <span class="string"><span class="delimiter">'</span><span class="content">commons-lang:commons-lang:1.5</span><span class="delimiter">'</span></span>
+    serverUrl = <span class="string"><span class="delimiter">'</span><span class="content">http://my.company.com/maven2</span><span class="delimiter">'</span></span>
+}</code></pre> 
+       </div> 
+      </div> 
+     </div> 
+     <div class="sect2"> 
+      <h3 id="benefiting_from_incremental_tasks"><a class="anchor" href="#benefiting_from_incremental_tasks"></a>1.3. Benefiting from incremental tasks</h3> 
+      <div class="paragraph"> 
+       <p>Gradle uses declared inputs and outputs to determine if a task is up-to-date and needs to perform any work. If none of the inputs or outputs have changed, Gradle can skip that task. Gradle calls this mechanism incremental build support. The advantage of <a href="https://docs.gradle.org/current/userguide/more_about_tasks.html#sec:up_to_date_checks">incremental build support</a> is that it can significantly improve the performance of a build.</p> 
+      </div> 
+      <div class="paragraph"> 
+       <p>It’s very common for Gradle plugins to introduce custom task types. As a plugin author that means that you’ll have to annotation all properties of a task with input or output annotations. It’s highly recommended to equip every task with the information to run up-to-date checking. Remember: for up-to-date checking to work properly a task needs to define both inputs and outputs.</p> 
+      </div> 
+      <div class="paragraph"> 
+       <p>Let’s consider the following sample task for illustration. The task generates a given number of files in an output directory. The text written to those files is provided by a String property.</p> 
+      </div> 
+      <div class="listingblock"> 
+       <div class="title">
+        Generate.java
+       </div> 
+       <div class="content"> 
+        <pre class="CodeRay highlight"><code data-lang="java"><span class="directive">public</span> <span class="type">class</span> <span class="class">Generate</span> <span class="directive">extends</span> DefaultTask {
+    <span class="directive">private</span> <span class="type">int</span> fileCount;
+    <span class="directive">private</span> <span class="predefined-type">String</span> content;
+    <span class="directive">private</span> <span class="predefined-type">File</span> generatedFileDir;
+
+    <span class="annotation">@Input</span>
+    <span class="directive">public</span> <span class="type">int</span> getFileCount() {
+        <span class="keyword">return</span> fileCount;
+    }
+
+    <span class="directive">public</span> <span class="type">void</span> setFileCount(<span class="type">int</span> fileCount) {
+        <span class="local-variable">this</span>.fileCount = fileCount;
+    }
+
+    <span class="annotation">@Input</span>
+    <span class="directive">public</span> <span class="type">int</span> getContent() {
+        <span class="keyword">return</span> content;
+    }
+
+    <span class="directive">public</span> <span class="type">void</span> setContent(<span class="predefined-type">String</span> content) {
+        <span class="local-variable">this</span>.content = content;
+    }
+
+    <span class="annotation">@OutputDirectory</span>
+    <span class="directive">public</span> <span class="predefined-type">File</span> getGeneratedFileDir() {
+        <span class="keyword">return</span> generatedFileDir;
+    }
+
+    <span class="directive">public</span> <span class="type">void</span> setGeneratedFileDir(<span class="predefined-type">File</span> generatedFileDir) {
+        <span class="local-variable">this</span>.generatedFileDir = generatedFileDir;
+    }
+
+    <span class="annotation">@TaskAction</span>
+    <span class="directive">public</span> <span class="type">void</span> perform() {
+        <span class="keyword">for</span> (<span class="type">int</span> i = <span class="integer">0</span>; i &lt; fileCount; i++) {
+            writeFile(<span class="keyword">new</span> <span class="predefined-type">File</span>(generatedFileDir, i + <span class="string"><span class="delimiter">"</span><span class="content">.txt</span><span class="delimiter">"</span></span>), content);
+        }
+    }
+
+    <span class="directive">private</span> <span class="type">void</span> writeFile(<span class="predefined-type">File</span> destination, <span class="predefined-type">String</span> content) <span class="directive">throws</span> <span class="exception">IOException</span> {
+        <span class="predefined-type">BufferedWriter</span> output = <span class="predefined-constant">null</span>;
+        <span class="keyword">try</span> {
+            output = <span class="keyword">new</span> <span class="predefined-type">BufferedWriter</span>(<span class="keyword">new</span> <span class="predefined-type">FileWriter</span>(destination));
+            output.write(content);
+        } <span class="keyword">finally</span> {
+            <span class="keyword">if</span> (output != <span class="predefined-constant">null</span>) {
+                output.close();
+            }
+        }
+    }
+}</code></pre> 
+       </div> 
+      </div> 
+      <div class="paragraph"> 
+       <p>The first section of this guide talks about the <a href="#plugin-development-plugin">Plugin Development Plugin</a>. As an added benefit of applying the plugin to your project, the task <code>validateTaskProperties</code> automatically checks for an existing input/output annotation for every public property define in a custom task type implementation.</p> 
+      </div> 
+     </div> 
+     <div class="sect2"> 
+      <h3 id="reacting_to_plugins"><a class="anchor" href="#reacting_to_plugins"></a>1.4. Reacting to plugins</h3> 
+      <div class="paragraph"> 
+       <p>Configuring the runtime behavior of existing plugins and tasks in a build is a common pattern in Gradle plugin implementations. For example a plugin could assume that it is applied to a Java-based project and automatically reconfigures the standard source directory.</p> 
+      </div> 
+      <div class="listingblock"> 
+       <div class="title">
+        InhouseConventionJavaPlugin.java
+       </div> 
+       <div class="content"> 
+        <pre class="CodeRay highlight"><code data-lang="java"><span class="directive">public</span> <span class="type">class</span> <span class="class">InhouseConventionJavaPlugin</span> <span class="directive">implements</span> Plugin&lt;Project&gt; {
+    <span class="directive">public</span> <span class="type">void</span> apply(Project project) {
+        project.getPlugins().apply(JavaPlugin.class);
+        JavaPluginConvention javaConvention =
+            project.getConvention().getPlugin(JavaPluginConvention.class);
+        SourceSet main = javaConvention.getSourceSets().create(SourceSet.MAIN_SOURCE_SET_NAME);
+        main.getAllJava().setSrcDirs(<span class="predefined-type">Arrays</span>.asList(<span class="string"><span class="delimiter">"</span><span class="content">src</span><span class="delimiter">"</span></span>));
+    }
+}</code></pre> 
+       </div> 
+      </div> 
+      <div class="paragraph"> 
+       <p>The drawback to this approach is that it automatically forces the project to apply the Java plugin and therefore imposes a strong opinion on it. In practice, the project applying the plugin might not even deal with Java code. Instead of automatically applying the Java plugin the plugin could just react to the fact that the consuming project applies the Java plugin. Only if that is the case then certain configuration is applied.</p> 
+      </div> 
+      <div class="listingblock"> 
+       <div class="title">
+        InhouseConventionJavaPlugin.java
+       </div> 
+       <div class="content"> 
+        <pre class="CodeRay highlight"><code data-lang="java"><span class="directive">public</span> <span class="type">class</span> <span class="class">InhouseConventionJavaPlugin</span> <span class="directive">implements</span> Plugin&lt;Project&gt; {
+    <span class="directive">public</span> <span class="type">void</span> apply(Project project) {
+        project.getPlugins().withType(JavaPlugin.class, <span class="keyword">new</span> <span class="predefined-type">Action</span>&lt;JavaPlugin&gt;() {
+            <span class="directive">public</span> <span class="type">void</span> execute(JavaPlugin javaPlugin) {
+                JavaPluginConvention javaConvention =
+                    project.getConvention().getPlugin(JavaPluginConvention.class);
+                SourceSet main = javaConvention.getSourceSets().create(SourceSet.MAIN_SOURCE_SET_NAME);
+                main.getAllJava().setSrcDirs(<span class="predefined-type">Arrays</span>.asList(<span class="string"><span class="delimiter">"</span><span class="content">src</span><span class="delimiter">"</span></span>));
+            }
+        }
+    });
+}</code></pre> 
+       </div> 
+      </div> 
+      <div class="paragraph"> 
+       <p>Reacting to plugins should be preferred over blindly applying other plugins if there is not a good reason for assuming that the consuming project has the expected setup. The same concept applies to task types.</p> 
+      </div> 
+      <div class="listingblock"> 
+       <div class="title">
+        InhouseConventionWarPlugin.java
+       </div> 
+       <div class="content"> 
+        <pre class="CodeRay highlight"><code data-lang="java"><span class="directive">public</span> <span class="type">class</span> <span class="class">InhouseConventionWarPlugin</span> <span class="directive">implements</span> Plugin&lt;Project&gt; {
+    <span class="directive">public</span> <span class="type">void</span> apply(Project project) {
+        project.getTasks().withType(War.class, <span class="keyword">new</span> <span class="predefined-type">Action</span>&lt;War&gt;() {
+            <span class="directive">public</span> <span class="type">void</span> execute(War war) {
+                war.setWebXml(project.file(<span class="string"><span class="delimiter">"</span><span class="content">src/someWeb.xml</span><span class="delimiter">"</span></span>));
+            }
+        });
+    }
+}</code></pre> 
+       </div> 
+      </div> 
+     </div> 
+     <div class="sect2"> 
+      <h3 id="providing_default_dependencies_for_plugins"><a class="anchor" href="#providing_default_dependencies_for_plugins"></a>1.5. Providing default dependencies for plugins</h3> 
+      <div class="paragraph"> 
+       <p>The implementation of a plugin sometimes requires the use of an external dependency. You might want to automatically download an artifact using Gradle’s dependency management mechanism and later use it in the action of a task type declared in the plugin. Optimally, the plugin implementation doesn’t need to ask the user for the coordinates of that dependency - it can simply predefine a sensible default version.</p> 
+      </div> 
+      <div class="paragraph"> 
+       <p>Let’s have a look at an example. You wrote a plugin that downloads files containing data for further processing. The plugin implementation declares a custom configuration that allows for <a href="https://docs.gradle.org/current/userguide/dependency_management.html#sec:configuration_defaults">assigning those external dependencies with default dependency coordinates</a>.</p> 
+      </div> 
+      <div class="paragraph"> 
+       <p>Please be aware that the code example below currently uses an internal API: convention mapping. Gradle 4.0 will provide a new public API for this purpose. This guide will be updated to reflect the use of the new public API as soon as the release goes out.</p> 
+      </div> 
+      <div class="listingblock"> 
+       <div class="title">
+        DataProcessingPlugin.java
+       </div> 
+       <div class="content"> 
+        <pre class="CodeRay highlight"><code data-lang="java"><span class="directive">public</span> <span class="type">class</span> <span class="class">DataProcessingPlugin</span> <span class="directive">implements</span> Plugin&lt;Project&gt; {
+    <span class="directive">public</span> <span class="type">void</span> apply(Project project) {
+        <span class="directive">final</span> <span class="predefined-type">Configuration</span> config = project.getConfigurations().create(<span class="string"><span class="delimiter">"</span><span class="content">dataFiles</span><span class="delimiter">"</span></span>)
+            .setVisible(<span class="predefined-constant">false</span>)
+            .setDescription(<span class="string"><span class="delimiter">"</span><span class="content">The data artifacts to be processed for this plugin.</span><span class="delimiter">"</span></span>);
+
+        config.defaultDependencies(<span class="keyword">new</span> <span class="predefined-type">Action</span>&lt;DependencySet&gt;() {
+            <span class="directive">public</span> <span class="type">void</span> execute(DependencySet dependencies) {
+                dependencies.add(project.getDependencies().create(<span class="string"><span class="delimiter">"</span><span class="content">com.company:data:1.4.6</span><span class="delimiter">"</span></span>));
+            }
+        });
+
+        project.getTasks().withType(DataProcessing.class, <span class="keyword">new</span> <span class="predefined-type">Action</span>&lt;DataProcessing&gt;() {
+            <span class="directive">public</span> <span class="type">void</span> execute(DataProcessing dataProcessing) {
+                dataProcessing.getConventionMapping().map(<span class="string"><span class="delimiter">"</span><span class="content">dataFiles</span><span class="delimiter">"</span></span>, <span class="keyword">new</span> <span class="predefined-type">Callable</span>&lt;FileCollection&gt;() {
+                    <span class="directive">public</span> FileCollection call() <span class="directive">throws</span> <span class="exception">Exception</span> {
+                        <span class="keyword">return</span> config;
+                    });
+                }
+            });
+        }
+    }
+}</code></pre> 
+       </div> 
+      </div> 
+      <div class="listingblock"> 
+       <div class="title">
+        DataProcessing.java
+       </div> 
+       <div class="content"> 
+        <pre class="CodeRay highlight"><code data-lang="java"><span class="directive">public</span> <span class="type">class</span> <span class="class">DataProcessing</span> <span class="directive">extends</span> DefaultTask {
+    <span class="directive">private</span> FileCollection dataFiles;
+
+    <span class="annotation">@InputFiles</span>
+    <span class="directive">public</span> FileCollection getDataFiles() {
+        <span class="keyword">return</span> dataFiles;
+    }
+
+    <span class="directive">public</span> <span class="type">void</span> setDataFiles(FileCollection dataFiles) {
+        <span class="local-variable">this</span>.dataFiles = dataFiles;
+    }
+
+    <span class="annotation">@TaskAction</span>
+    <span class="directive">public</span> <span class="type">void</span> process() {
+        <span class="predefined-type">System</span>.out.println(getDataFiles().getFiles());
+    }
+}</code></pre> 
+       </div> 
+      </div> 
+      <div class="paragraph"> 
+       <p>Now, this approach is very convenient for the end user as there’s no need to actively declare a dependency. The plugin already provides all the knowledge about this implementation detail. But what if the user would like to redefine the default dependency. No problem…​the plugin also exposes the custom configuration that can be used to assign a different dependency. Effectively, the default dependency is overwritten.</p> 
+      </div> 
+      <div class="listingblock"> 
+       <div class="title">
+        build.gradle
+       </div> 
+       <div class="content"> 
+        <pre class="CodeRay highlight"><code data-lang="groovy">apply <span class="key">plugin</span>: DataProcessingPlugin
+
+dependencies {
+    dataFiles <span class="string"><span class="delimiter">'</span><span class="content">com.company:more-data:2.+</span><span class="delimiter">'</span></span>
+}</code></pre> 
+       </div> 
+      </div> 
+      <div class="paragraph"> 
+       <p>You will find that this pattern works well for tasks that require an external dependency when the action of the task is actually executed. The method is heavily used for custom tasks that execute an external Ant task like many of the <a href="https://docs.gradle.org/current/userguide/standard_plugins.html#sec:software_development_plugins">Gradle core static analysis plugins</a> do e.g. the FindBugs and Checkstyle plugin. In fact those plugins even go further and abstract the version to be used for the external dependency by exposing an extension property (e.g. <a href="https://docs.gradle.org/current/dsl/org.gradle.testing.jacoco.plugins.JacocoPluginExtension.html#org.gradle.testing.jacoco.plugins.JacocoPluginExtension:toolVersion"><code>toolVersion</code> in the JaCoCo plugin</a>).</p> 
+      </div> 
+     </div> 
+     <div class="sect2"> 
+      <h3 id="assigning_appropriate_plugin_identifiers"><a class="anchor" href="#assigning_appropriate_plugin_identifiers"></a>1.6. Assigning appropriate plugin identifiers</h3> 
+      <div class="paragraph"> 
+       <p>A descriptive plugin identifier makes it easy for consumers to apply the plugin to a project. The ID should reflect the purpose of the plugin with a single term. Additionally, a domain name should be added to avoid conflicts between other plugins with similar functionality. In the previous sections, dependencies shows in code examples use the group ID <code>com.company</code>. We could use the same identifier as domain name. In case you are not working with a legal entity or should want to publish a open-source plugin then you can just use the domain name hosting the source code e.g. <code>com.github</code>.</p> 
+      </div> 
+      <div class="paragraph"> 
+       <p>When publishing multiple plugins as part of a single JAR artifact (as described in the section <a href="https://guides.gradle.org/designing-gradle-plugins#capabilities-vs-conventions">Capabilities vs. conventions</a>) the same naming conventions should apply. There’s no limitation to the number of plugins that can be registered by identifier and serves as a nice way to group related plugins together. For illustration, the Gradle Android plugin defines two different plugins in the directory <code>src/main/resources/META-INF/gradle-plugins</code>.</p> 
+      </div> 
+      <div class="listingblock"> 
+       <div class="content"> 
+        <pre>.
+└── src
+    └── main
+        └── resources
+            └── META-INF
+                └── gradle-plugins
+                    ├── com.android.application.properties
+                    └── com.android.library.properties</pre> 
+       </div> 
+      </div> 
+     </div> 
+     <div class="sect2"> 
+      <h3 id="adding_helpful_javadocs_to_implementation"><a class="anchor" href="#adding_helpful_javadocs_to_implementation"></a>1.7. Adding helpful Javadocs to implementation</h3> 
+      <div class="paragraph"> 
+       <p>Gradle plugin implementations are consumable APIs: Plugins can be applied, extensions and task types expose methods and properties to configure the runtime behavior. <a href="http://www.oracle.com/technetwork/articles/java/index-137868.html">Javadocs</a> are a great way to inform the end user about the purpose of classes, their usage in build script including available configuration options. It’s important to provide this information via Javadocs as you write the code.</p> 
+      </div> 
+      <div class="listingblock"> 
+       <div class="title">
+        Generate.java
+       </div> 
+       <div class="content"> 
+        <pre class="CodeRay highlight"><code data-lang="java"><span class="comment">/** * Custom task type for generating files for the provided text. * &lt;p&gt; * The following sample code demonstrates the use of the type in a Gradle build script: * &lt;pre&gt; * task generate(type: Generate) { * fileCount = 5 * } * &lt;/pre&gt; */</span>
+<span class="directive">public</span> <span class="type">class</span> <span class="class">Generate</span> <span class="directive">extends</span> DefaultTask {
+    <span class="directive">private</span> <span class="type">int</span> fileCount;
+
+    <span class="comment">/** * Returns the number of files to be generated. * * @return Number of files */</span>
+    <span class="annotation">@Input</span>
+    <span class="directive">public</span> <span class="type">int</span> getFileCount() {
+        <span class="keyword">return</span> fileCount;
+    }
+
+    <span class="comment">/** * Sets the number of files to be generated. * * @param Number of files */</span>
+    <span class="directive">public</span> <span class="type">void</span> setFileCount(<span class="type">int</span> fileCount) {
+        <span class="local-variable">this</span>.fileCount = fileCount;
+    }
+
+    ...
+}</code></pre> 
+       </div> 
+      </div> 
+      <div class="paragraph"> 
+       <p>We are planning to publish another guide in this series of topical guides that explains how to generate the Javadocs for your plugins and publish them to a public hosting platform.</p> 
+      </div> 
      </div> 
     </div> 
    </div> 
@@ -65,14 +437,33 @@
     <h2 id="summary"><a class="anchor" href="#summary"></a>2. Summary</h2> 
     <div class="sectionbody"> 
      <div class="paragraph"> 
-      <p><strong>TBC</strong></p> 
+      <p>Writing plugins doesn’t have to be hard. With the right techniques you can easily overcome commonly-faced challenges and implement plugins that are maintainable, reusable, declarative, well-documented and tested. Not all presented recommendations and recipes presented in this guide might be applicable to your plugin or your use case. However, the presented solutions should help you move toward the right direction.</p> 
+     </div> 
+     <div class="paragraph"> 
+      <p>The content of this guide will be expanded over time as new functionality becomes available in Gradle core. Please let us know on the <a href="https://discuss.gradle.org/">Gradle forum</a> if you are still having difficulties implementing specific use cases in your plugin or if you’d like to see other use case covered in this guide.</p> 
+     </div> 
+     <div class="paragraph"> 
+      <p>Wrote an awesome plugin? Write a tweet to <a href="https://twitter.com/gradle">@gradle</a> with the link to the documentation or code.</p> 
+     </div> 
+    </div> 
+   </div> 
+   <div class="sect1"> 
+    <h2 id="next_steps"><a class="anchor" href="#next_steps"></a>3. Next steps</h2> 
+    <div class="sectionbody"> 
+     <div class="paragraph"> 
+      <p>There’s far more to Gradle plugins than the actual implementation. You may be interested in:</p> 
+     </div> 
+     <div class="ulist"> 
+      <ul> 
+       <li> <p><a href="https://guides.gradle.org/designing-gradle-plugins">Designing Gradle plugins</a></p> </li> 
+      </ul> 
      </div> 
     </div> 
    </div> 
   </div> 
   <div id="footer"> 
    <div id="footer-text">
-     Last updated 2017-04-10 14:24:05 UTC 
+     Last updated 2017-04-10 14:33:04 UTC 
    </div> 
   </div>  
  </body>
