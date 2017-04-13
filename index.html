@@ -48,7 +48,6 @@
        <li><a href="#reacting_to_plugins">1.4. Reacting to plugins</a></li> 
        <li><a href="#providing_default_dependencies_for_plugins">1.5. Providing default dependencies for plugins</a></li> 
        <li><a href="#assigning_appropriate_plugin_identifiers">1.6. Assigning appropriate plugin identifiers</a></li> 
-       <li><a href="#adding_helpful_javadocs_to_implementation">1.7. Adding helpful Javadocs to implementation</a></li> 
       </ul> </li> 
      <li><a href="#summary">2. Summary</a></li> 
      <li><a href="#next_steps">3. Next steps</a></li> 
@@ -407,39 +406,6 @@ dependencies {
        </div> 
       </div> 
      </div> 
-     <div class="sect2"> 
-      <h3 id="adding_helpful_javadocs_to_implementation"><a class="anchor" href="#adding_helpful_javadocs_to_implementation"></a>1.7. Adding helpful Javadocs to implementation</h3> 
-      <div class="paragraph"> 
-       <p>Gradle plugin implementations are consumable APIs: Plugins can be applied, extensions and task types expose methods and properties to configure the runtime behavior. <a href="http://www.oracle.com/technetwork/articles/java/index-137868.html">Javadocs</a> are a great way to inform the end user about the purpose of classes, their usage in build script including available configuration options. It’s important to provide this information via Javadocs as you write the code.</p> 
-      </div> 
-      <div class="listingblock"> 
-       <div class="title">
-        Generate.java
-       </div> 
-       <div class="content"> 
-        <pre class="CodeRay highlight"><code data-lang="java"><span class="comment">/** * Custom task type for generating files for the provided text. * &lt;p&gt; * The following sample code demonstrates the use of the type in a Gradle build script: * &lt;pre&gt; * task generate(type: Generate) { * fileCount = 5 * } * &lt;/pre&gt; */</span>
-<span class="directive">public</span> <span class="type">class</span> <span class="class">Generate</span> <span class="directive">extends</span> DefaultTask {
-    <span class="directive">private</span> <span class="type">int</span> fileCount;
-
-    <span class="comment">/** * Returns the number of files to be generated. * * @return Number of files */</span>
-    <span class="annotation">@Input</span>
-    <span class="directive">public</span> <span class="type">int</span> getFileCount() {
-        <span class="keyword">return</span> fileCount;
-    }
-
-    <span class="comment">/** * Sets the number of files to be generated. * * @param Number of files */</span>
-    <span class="directive">public</span> <span class="type">void</span> setFileCount(<span class="type">int</span> fileCount) {
-        <span class="local-variable">this</span>.fileCount = fileCount;
-    }
-
-    ...
-}</code></pre> 
-       </div> 
-      </div> 
-      <div class="paragraph"> 
-       <p>We are planning to publish another guide in this series of topical guides that explains how to generate the Javadocs for your plugins and publish them to a public hosting platform.</p> 
-      </div> 
-     </div> 
     </div> 
    </div> 
    <div class="sect1"> 
@@ -472,7 +438,7 @@ dependencies {
   </div> 
   <div id="footer"> 
    <div id="footer-text">
-     Last updated 2017-04-12 22:02:58 UTC 
+     Last updated 2017-04-13 12:30:38 UTC 
    </div> 
   </div>  
  </body>
