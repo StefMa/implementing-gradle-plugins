@@ -44,10 +44,11 @@
 <li><a href="#plugin-development-plugin">1.1. Using the Plugin Development plugin for writing plugins</a></li>
 <li><a href="#writing-and-using-custom-task-types">1.2. Prefer writing and using custom task types</a></li>
 <li><a href="#benefiting_from_incremental_tasks">1.3. Benefiting from incremental tasks</a></li>
-<li><a href="#reacting_to_plugins">1.4. Reacting to plugins</a></li>
-<li><a href="#providing_default_dependencies_for_plugins">1.5. Providing default dependencies for plugins</a></li>
-<li><a href="#assigning_appropriate_plugin_identifiers">1.6. Assigning appropriate plugin identifiers</a></li>
-<li><a href="#capturing_user_input_to_configure_plugin_runtime_behavior">1.7. Capturing user input to configure plugin runtime behavior</a></li>
+<li><a href="#modeling_dsl_like_apis">1.4. Modeling DSL-like APIs</a></li>
+<li><a href="#reacting_to_plugins">1.5. Reacting to plugins</a></li>
+<li><a href="#providing_default_dependencies_for_plugins">1.6. Providing default dependencies for plugins</a></li>
+<li><a href="#assigning_appropriate_plugin_identifiers">1.7. Assigning appropriate plugin identifiers</a></li>
+<li><a href="#capturing_user_input_to_configure_plugin_runtime_behavior">1.8. Capturing user input to configure plugin runtime behavior</a></li>
 </ul>
 </li>
 <li><a href="#summary">2. Summary</a></li>
@@ -238,7 +239,82 @@ task latestVersionInhouseRepo(<span class="key">type</span>: LatestArtifactVersi
 </div>
 </div>
 <div class="sect2">
-<h3 id="reacting_to_plugins"><a class="anchor" href="#reacting_to_plugins"></a>1.4. Reacting to plugins</h3>
+<h3 id="modeling_dsl_like_apis"><a class="anchor" href="#modeling_dsl_like_apis"></a>1.4. Modeling DSL-like APIs</h3>
+<div class="paragraph">
+<p>DSLs exposed by plugins should be readable and easy to understand. For illustration let&#8217;s consider the following extension provided by a plugin. In its current form it offers a "flat" list of properties for configuring the creation of a web site.</p>
+</div>
+<div class="listingblock">
+<div class="title">build.gradle</div>
+<div class="content">
+<pre class="CodeRay highlight"><code data-lang="groovy">site {
+    outputDir = file(<span class="string"><span class="delimiter">'</span><span class="content">build/mysite</span><span class="delimiter">'</span></span>)
+    websiteUrl = <span class="string"><span class="delimiter">'</span><span class="content">http://gradle.org</span><span class="delimiter">'</span></span>
+    vcsUrl = <span class="string"><span class="delimiter">'</span><span class="content">https://github.com/gradle-guides/gradle-site-plugin</span><span class="delimiter">'</span></span>
+}</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>As the number of exposed properties grows, you might want to introduce a nested, more expressive structure. The following code snippet adds a new configuration block named <code>customData</code> as part of the extension. You might have noticed that it provides a stronger indication of what those properties mean.</p>
+</div>
+<div class="listingblock">
+<div class="title">build.gradle</div>
+<div class="content">
+<pre class="CodeRay highlight"><code data-lang="groovy">site {
+    outputDir = file(<span class="string"><span class="delimiter">'</span><span class="content">build/mysite</span><span class="delimiter">'</span></span>)
+
+    customData {
+        websiteUrl = <span class="string"><span class="delimiter">'</span><span class="content">http://gradle.org</span><span class="delimiter">'</span></span>
+        vcsUrl = <span class="string"><span class="delimiter">'</span><span class="content">https://github.com/gradle-guides/gradle-site-plugin</span><span class="delimiter">'</span></span>
+    }
+}</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>It&#8217;s fairly easy to implement the backing objects of such an extension. First of all, you&#8217;ll need to introduce a new data object for managing the properties <code>websiteUrl</code> and <code>vcsUrl</code>.</p>
+</div>
+<div class="listingblock">
+<div class="title">CustomData.java</div>
+<div class="content">
+<pre class="CodeRay highlight"><code data-lang="java"><span class="directive">public</span> <span class="type">class</span> <span class="class">CustomData</span> {
+    <span class="directive">private</span> <span class="predefined-type">String</span> websiteUrl;
+    <span class="directive">private</span> <span class="predefined-type">String</span> vcsUrl;
+
+    <span class="comment">// getter and setter methods</span>
+}</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>In the extension, you&#8217;ll need to create an instance of the <code>CustomData</code> class and a method that can delegate the captured values to the data instance. To configure underlying data objects define a parameter of type <a href="https://docs.gradle.org/4.0/javadoc/org/gradle/api/Action.html">org.gradle.api.Action</a>. The following example demonstrates the use of <code>Action</code> in an extension definition.</p>
+</div>
+<div class="listingblock">
+<div class="title">SiteExtension.java</div>
+<div class="content">
+<pre class="CodeRay highlight"><code data-lang="java"><span class="keyword">import</span> <span class="include">org.gradle.api.Action</span>;
+
+<span class="directive">public</span> <span class="type">class</span> <span class="class">SiteExtension</span> {
+    <span class="directive">private</span> <span class="directive">final</span> CustomData customData = <span class="keyword">new</span> CustomData();
+
+    <span class="directive">public</span> <span class="type">void</span> customData(<span class="predefined-type">Action</span>&lt;? <span class="local-variable">super</span> CustomData&gt; action) {
+        action.execute(customData);
+    }
+}</code></pre>
+</div>
+</div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+If you need second or third level nesting, you will also have to add overloads that take a <code>Closure</code>, because Gradle cannot instrument nested extensions at the moment.
+</td>
+</tr>
+</table>
+</div>
+</div>
+<div class="sect2">
+<h3 id="reacting_to_plugins"><a class="anchor" href="#reacting_to_plugins"></a>1.5. Reacting to plugins</h3>
 <div class="paragraph">
 <p>Configuring the runtime behavior of existing plugins and tasks in a build is a common pattern in Gradle plugin implementations. For example a plugin could assume that it is applied to a Java-based project and automatically reconfigures the standard source directory.</p>
 </div>
@@ -295,7 +371,7 @@ task latestVersionInhouseRepo(<span class="key">type</span>: LatestArtifactVersi
 </div>
 </div>
 <div class="sect2">
-<h3 id="providing_default_dependencies_for_plugins"><a class="anchor" href="#providing_default_dependencies_for_plugins"></a>1.5. Providing default dependencies for plugins</h3>
+<h3 id="providing_default_dependencies_for_plugins"><a class="anchor" href="#providing_default_dependencies_for_plugins"></a>1.6. Providing default dependencies for plugins</h3>
 <div class="paragraph">
 <p>The implementation of a plugin sometimes requires the use of an external dependency. You might want to automatically download an artifact using Gradle’s dependency management mechanism and later use it in the action of a task type declared in the plugin. Optimally, the plugin implementation doesn’t need to ask the user for the coordinates of that dependency - it can simply predefine a sensible default version.</p>
 </div>
@@ -373,7 +449,7 @@ dependencies {
 </div>
 </div>
 <div class="sect2">
-<h3 id="assigning_appropriate_plugin_identifiers"><a class="anchor" href="#assigning_appropriate_plugin_identifiers"></a>1.6. Assigning appropriate plugin identifiers</h3>
+<h3 id="assigning_appropriate_plugin_identifiers"><a class="anchor" href="#assigning_appropriate_plugin_identifiers"></a>1.7. Assigning appropriate plugin identifiers</h3>
 <div class="paragraph">
 <p>A descriptive plugin identifier makes it easy for consumers to apply the plugin to a project. The ID should reflect the purpose of the plugin with a single term. Additionally, a domain name should be added to avoid conflicts between other plugins with similar functionality. In the previous sections, dependencies shows in code examples use the group ID <code>com.company</code>. We could use the same identifier as domain name. In case you are not working with a legal entity or should want to publish a open-source plugin then you can just use the domain name hosting the source code e.g. <code>com.github</code>.</p>
 </div>
@@ -394,7 +470,7 @@ dependencies {
 </div>
 </div>
 <div class="sect2">
-<h3 id="capturing_user_input_to_configure_plugin_runtime_behavior"><a class="anchor" href="#capturing_user_input_to_configure_plugin_runtime_behavior"></a>1.7. Capturing user input to configure plugin runtime behavior</h3>
+<h3 id="capturing_user_input_to_configure_plugin_runtime_behavior"><a class="anchor" href="#capturing_user_input_to_configure_plugin_runtime_behavior"></a>1.8. Capturing user input to configure plugin runtime behavior</h3>
 <div class="paragraph">
 <p>Plugins often times come with default conventions that make sensible assumptions about the consuming project. The Java plugin, for example, searches for Java source files in the directory <code>src/main/java</code>. Default conventions are helpful to streamline project layouts but fall short when dealing with custom project structures, legacy project requirements or a different user preference.</p>
 </div>
@@ -546,7 +622,7 @@ We encourage plugin developers to migrate their plugins to the public API as soo
 </div>
 <div id="footer">
 <div id="footer-text">
-Last updated 2017-06-14 19:36:12 UTC
+Last updated 2017-06-15 13:06:17 UTC
 </div>
 </div>
 </body>
