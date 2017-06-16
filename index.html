@@ -45,10 +45,10 @@
 <li><a href="#writing-and-using-custom-task-types">1.2. Prefer writing and using custom task types</a></li>
 <li><a href="#benefiting_from_incremental_tasks">1.3. Benefiting from incremental tasks</a></li>
 <li><a href="#modeling_dsl_like_apis">1.4. Modeling DSL-like APIs</a></li>
-<li><a href="#reacting_to_plugins">1.5. Reacting to plugins</a></li>
-<li><a href="#providing_default_dependencies_for_plugins">1.6. Providing default dependencies for plugins</a></li>
-<li><a href="#assigning_appropriate_plugin_identifiers">1.7. Assigning appropriate plugin identifiers</a></li>
-<li><a href="#capturing_user_input_to_configure_plugin_runtime_behavior">1.8. Capturing user input to configure plugin runtime behavior</a></li>
+<li><a href="#capturing_user_input_to_configure_plugin_runtime_behavior">1.5. Capturing user input to configure plugin runtime behavior</a></li>
+<li><a href="#reacting_to_plugins">1.6. Reacting to plugins</a></li>
+<li><a href="#providing_default_dependencies_for_plugins">1.7. Providing default dependencies for plugins</a></li>
+<li><a href="#assigning_appropriate_plugin_identifiers">1.8. Assigning appropriate plugin identifiers</a></li>
 </ul>
 </li>
 <li><a href="#summary">2. Summary</a></li>
@@ -314,163 +314,7 @@ If you need second- or third-level nesting, you will also have to add overloads 
 </div>
 </div>
 <div class="sect2">
-<h3 id="reacting_to_plugins"><a class="anchor" href="#reacting_to_plugins"></a>1.5. Reacting to plugins</h3>
-<div class="paragraph">
-<p>Configuring the runtime behavior of existing plugins and tasks in a build is a common pattern in Gradle plugin implementations. For example a plugin could assume that it is applied to a Java-based project and automatically reconfigures the standard source directory.</p>
-</div>
-<div class="listingblock">
-<div class="title">InhouseConventionJavaPlugin.java</div>
-<div class="content">
-<pre class="CodeRay highlight"><code data-lang="java"><span class="directive">public</span> <span class="type">class</span> <span class="class">InhouseConventionJavaPlugin</span> <span class="directive">implements</span> Plugin&lt;Project&gt; {
-    <span class="directive">public</span> <span class="type">void</span> apply(Project project) {
-        project.getPlugins().apply(JavaPlugin.class);
-        JavaPluginConvention javaConvention =
-            project.getConvention().getPlugin(JavaPluginConvention.class);
-        SourceSet main = javaConvention.getSourceSets().create(SourceSet.MAIN_SOURCE_SET_NAME);
-        main.getAllJava().setSrcDirs(<span class="predefined-type">Arrays</span>.asList(<span class="string"><span class="delimiter">&quot;</span><span class="content">src</span><span class="delimiter">&quot;</span></span>));
-    }
-}</code></pre>
-</div>
-</div>
-<div class="paragraph">
-<p>The drawback to this approach is that it automatically forces the project to apply the Java plugin and therefore imposes a strong opinion on it. In practice, the project applying the plugin might not even deal with Java code. Instead of automatically applying the Java plugin the plugin could just react to the fact that the consuming project applies the Java plugin. Only if that is the case then certain configuration is applied.</p>
-</div>
-<div class="listingblock">
-<div class="title">InhouseConventionJavaPlugin.java</div>
-<div class="content">
-<pre class="CodeRay highlight"><code data-lang="java"><span class="directive">public</span> <span class="type">class</span> <span class="class">InhouseConventionJavaPlugin</span> <span class="directive">implements</span> Plugin&lt;Project&gt; {
-    <span class="directive">public</span> <span class="type">void</span> apply(Project project) {
-        project.getPlugins().withType(JavaPlugin.class, <span class="keyword">new</span> <span class="predefined-type">Action</span>&lt;JavaPlugin&gt;() {
-            <span class="directive">public</span> <span class="type">void</span> execute(JavaPlugin javaPlugin) {
-                JavaPluginConvention javaConvention =
-                    project.getConvention().getPlugin(JavaPluginConvention.class);
-                SourceSet main = javaConvention.getSourceSets().create(SourceSet.MAIN_SOURCE_SET_NAME);
-                main.getAllJava().setSrcDirs(<span class="predefined-type">Arrays</span>.asList(<span class="string"><span class="delimiter">&quot;</span><span class="content">src</span><span class="delimiter">&quot;</span></span>));
-            }
-        }
-    });
-}</code></pre>
-</div>
-</div>
-<div class="paragraph">
-<p>Reacting to plugins should be preferred over blindly applying other plugins if there is not a good reason for assuming that the consuming project has the expected setup. The same concept applies to task types.</p>
-</div>
-<div class="listingblock">
-<div class="title">InhouseConventionWarPlugin.java</div>
-<div class="content">
-<pre class="CodeRay highlight"><code data-lang="java"><span class="directive">public</span> <span class="type">class</span> <span class="class">InhouseConventionWarPlugin</span> <span class="directive">implements</span> Plugin&lt;Project&gt; {
-    <span class="directive">public</span> <span class="type">void</span> apply(Project project) {
-        project.getTasks().withType(War.class, <span class="keyword">new</span> <span class="predefined-type">Action</span>&lt;War&gt;() {
-            <span class="directive">public</span> <span class="type">void</span> execute(War war) {
-                war.setWebXml(project.file(<span class="string"><span class="delimiter">&quot;</span><span class="content">src/someWeb.xml</span><span class="delimiter">&quot;</span></span>));
-            }
-        });
-    }
-}</code></pre>
-</div>
-</div>
-</div>
-<div class="sect2">
-<h3 id="providing_default_dependencies_for_plugins"><a class="anchor" href="#providing_default_dependencies_for_plugins"></a>1.6. Providing default dependencies for plugins</h3>
-<div class="paragraph">
-<p>The implementation of a plugin sometimes requires the use of an external dependency. You might want to automatically download an artifact using Gradle’s dependency management mechanism and later use it in the action of a task type declared in the plugin. Optimally, the plugin implementation doesn’t need to ask the user for the coordinates of that dependency - it can simply predefine a sensible default version.</p>
-</div>
-<div class="paragraph">
-<p>Let’s have a look at an example. You wrote a plugin that downloads files containing data for further processing. The plugin implementation declares a custom configuration that allows for <a href="https://docs.gradle.org/4.0/userguide/dependency_management.html#sec:configuration_defaults">assigning those external dependencies with default dependency coordinates</a>.</p>
-</div>
-<div class="paragraph">
-<p>Please be aware that the code example below currently uses an internal API: convention mapping. Gradle 4.0 will provide a new public API for this purpose. This guide will be updated to reflect the use of the new public API as soon as the release goes out.</p>
-</div>
-<div class="listingblock">
-<div class="title">DataProcessingPlugin.java</div>
-<div class="content">
-<pre class="CodeRay highlight"><code data-lang="java"><span class="directive">public</span> <span class="type">class</span> <span class="class">DataProcessingPlugin</span> <span class="directive">implements</span> Plugin&lt;Project&gt; {
-    <span class="directive">public</span> <span class="type">void</span> apply(Project project) {
-        <span class="directive">final</span> <span class="predefined-type">Configuration</span> config = project.getConfigurations().create(<span class="string"><span class="delimiter">&quot;</span><span class="content">dataFiles</span><span class="delimiter">&quot;</span></span>)
-            .setVisible(<span class="predefined-constant">false</span>)
-            .setDescription(<span class="string"><span class="delimiter">&quot;</span><span class="content">The data artifacts to be processed for this plugin.</span><span class="delimiter">&quot;</span></span>);
-
-        config.defaultDependencies(<span class="keyword">new</span> <span class="predefined-type">Action</span>&lt;DependencySet&gt;() {
-            <span class="directive">public</span> <span class="type">void</span> execute(DependencySet dependencies) {
-                dependencies.add(project.getDependencies().create(<span class="string"><span class="delimiter">&quot;</span><span class="content">com.company:data:1.4.6</span><span class="delimiter">&quot;</span></span>));
-            }
-        });
-
-        project.getTasks().withType(DataProcessing.class, <span class="keyword">new</span> <span class="predefined-type">Action</span>&lt;DataProcessing&gt;() {
-            <span class="directive">public</span> <span class="type">void</span> execute(DataProcessing dataProcessing) {
-                dataProcessing.getConventionMapping().map(<span class="string"><span class="delimiter">&quot;</span><span class="content">dataFiles</span><span class="delimiter">&quot;</span></span>, <span class="keyword">new</span> <span class="predefined-type">Callable</span>&lt;FileCollection&gt;() {
-                    <span class="directive">public</span> FileCollection call() <span class="directive">throws</span> <span class="exception">Exception</span> {
-                        <span class="keyword">return</span> config;
-                    });
-                }
-            });
-        }
-    }
-}</code></pre>
-</div>
-</div>
-<div class="listingblock">
-<div class="title">DataProcessing.java</div>
-<div class="content">
-<pre class="CodeRay highlight"><code data-lang="java"><span class="directive">public</span> <span class="type">class</span> <span class="class">DataProcessing</span> <span class="directive">extends</span> DefaultTask {
-    <span class="directive">private</span> FileCollection dataFiles;
-
-    <span class="annotation">@InputFiles</span>
-    <span class="directive">public</span> FileCollection getDataFiles() {
-        <span class="keyword">return</span> dataFiles;
-    }
-
-    <span class="directive">public</span> <span class="type">void</span> setDataFiles(FileCollection dataFiles) {
-        <span class="local-variable">this</span>.dataFiles = dataFiles;
-    }
-
-    <span class="annotation">@TaskAction</span>
-    <span class="directive">public</span> <span class="type">void</span> process() {
-        <span class="predefined-type">System</span>.out.println(getDataFiles().getFiles());
-    }
-}</code></pre>
-</div>
-</div>
-<div class="paragraph">
-<p>Now, this approach is very convenient for the end user as there’s no need to actively declare a dependency. The plugin already provides all the knowledge about this implementation detail. But what if the user would like to redefine the default dependency. No problem&#8230;&#8203;the plugin also exposes the custom configuration that can be used to assign a different dependency. Effectively, the default dependency is overwritten.</p>
-</div>
-<div class="listingblock">
-<div class="title">build.gradle</div>
-<div class="content">
-<pre class="CodeRay highlight"><code data-lang="groovy">apply <span class="key">plugin</span>: DataProcessingPlugin
-
-dependencies {
-    dataFiles <span class="string"><span class="delimiter">'</span><span class="content">com.company:more-data:2.+</span><span class="delimiter">'</span></span>
-}</code></pre>
-</div>
-</div>
-<div class="paragraph">
-<p>You will find that this pattern works well for tasks that require an external dependency when the action of the task is actually executed. The method is heavily used for custom tasks that execute an external Ant task like many of the <a href="https://docs.gradle.org/4.0/userguide/standard_plugins.html#sec:software_development_plugins">Gradle core static analysis plugins</a> do e.g. the FindBugs and Checkstyle plugin. In fact those plugins even go further and abstract the version to be used for the external dependency by exposing an extension property (e.g. <code>toolVersion</code> <a href="https://docs.gradle.org/4.0/dsl/org.gradle.testing.jacoco.plugins.JacocoPluginExtension.html#org.gradle.testing.jacoco.plugins.JacocoPluginExtension:toolVersion">in the JaCoCo plugin</a>).</p>
-</div>
-</div>
-<div class="sect2">
-<h3 id="assigning_appropriate_plugin_identifiers"><a class="anchor" href="#assigning_appropriate_plugin_identifiers"></a>1.7. Assigning appropriate plugin identifiers</h3>
-<div class="paragraph">
-<p>A descriptive plugin identifier makes it easy for consumers to apply the plugin to a project. The ID should reflect the purpose of the plugin with a single term. Additionally, a domain name should be added to avoid conflicts between other plugins with similar functionality. In the previous sections, dependencies shows in code examples use the group ID <code>com.company</code>. We could use the same identifier as domain name. In case you are not working with a legal entity or should want to publish a open-source plugin then you can just use the domain name hosting the source code e.g. <code>com.github</code>.</p>
-</div>
-<div class="paragraph">
-<p>When publishing multiple plugins as part of a single JAR artifact (as described in the section <a href="https://guides.gradle.org/designing-gradle-plugins#capabilities-vs-conventions">Capabilities vs. conventions</a>) the same naming conventions should apply. There’s no limitation to the number of plugins that can be registered by identifier and serves as a nice way to group related plugins together. For illustration, the Gradle Android plugin defines two different plugins in the directory <code>src/main/resources/META-INF/gradle-plugins</code>.</p>
-</div>
-<div class="listingblock">
-<div class="content">
-<pre>.
-└── src
-    └── main
-        └── resources
-            └── META-INF
-                └── gradle-plugins
-                    ├── com.android.application.properties
-                    └── com.android.library.properties</pre>
-</div>
-</div>
-</div>
-<div class="sect2">
-<h3 id="capturing_user_input_to_configure_plugin_runtime_behavior"><a class="anchor" href="#capturing_user_input_to_configure_plugin_runtime_behavior"></a>1.8. Capturing user input to configure plugin runtime behavior</h3>
+<h3 id="capturing_user_input_to_configure_plugin_runtime_behavior"><a class="anchor" href="#capturing_user_input_to_configure_plugin_runtime_behavior"></a>1.5. Capturing user input to configure plugin runtime behavior</h3>
 <div class="paragraph">
 <p>Plugins often times come with default conventions that make sensible assumptions about the consuming project. The Java plugin, for example, searches for Java source files in the directory <code>src/main/java</code>. Default conventions are helpful to streamline project layouts but fall short when dealing with custom project structures, legacy project requirements or a different user preference.</p>
 </div>
@@ -588,6 +432,162 @@ We encourage plugin developers to migrate their plugins to the public API as soo
 </table>
 </div>
 </div>
+<div class="sect2">
+<h3 id="reacting_to_plugins"><a class="anchor" href="#reacting_to_plugins"></a>1.6. Reacting to plugins</h3>
+<div class="paragraph">
+<p>Configuring the runtime behavior of existing plugins and tasks in a build is a common pattern in Gradle plugin implementations. For example a plugin could assume that it is applied to a Java-based project and automatically reconfigures the standard source directory.</p>
+</div>
+<div class="listingblock">
+<div class="title">InhouseConventionJavaPlugin.java</div>
+<div class="content">
+<pre class="CodeRay highlight"><code data-lang="java"><span class="directive">public</span> <span class="type">class</span> <span class="class">InhouseConventionJavaPlugin</span> <span class="directive">implements</span> Plugin&lt;Project&gt; {
+    <span class="directive">public</span> <span class="type">void</span> apply(Project project) {
+        project.getPlugins().apply(JavaPlugin.class);
+        JavaPluginConvention javaConvention =
+            project.getConvention().getPlugin(JavaPluginConvention.class);
+        SourceSet main = javaConvention.getSourceSets().create(SourceSet.MAIN_SOURCE_SET_NAME);
+        main.getAllJava().setSrcDirs(<span class="predefined-type">Arrays</span>.asList(<span class="string"><span class="delimiter">&quot;</span><span class="content">src</span><span class="delimiter">&quot;</span></span>));
+    }
+}</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>The drawback to this approach is that it automatically forces the project to apply the Java plugin and therefore imposes a strong opinion on it. In practice, the project applying the plugin might not even deal with Java code. Instead of automatically applying the Java plugin the plugin could just react to the fact that the consuming project applies the Java plugin. Only if that is the case then certain configuration is applied.</p>
+</div>
+<div class="listingblock">
+<div class="title">InhouseConventionJavaPlugin.java</div>
+<div class="content">
+<pre class="CodeRay highlight"><code data-lang="java"><span class="directive">public</span> <span class="type">class</span> <span class="class">InhouseConventionJavaPlugin</span> <span class="directive">implements</span> Plugin&lt;Project&gt; {
+    <span class="directive">public</span> <span class="type">void</span> apply(Project project) {
+        project.getPlugins().withType(JavaPlugin.class, <span class="keyword">new</span> <span class="predefined-type">Action</span>&lt;JavaPlugin&gt;() {
+            <span class="directive">public</span> <span class="type">void</span> execute(JavaPlugin javaPlugin) {
+                JavaPluginConvention javaConvention =
+                    project.getConvention().getPlugin(JavaPluginConvention.class);
+                SourceSet main = javaConvention.getSourceSets().create(SourceSet.MAIN_SOURCE_SET_NAME);
+                main.getAllJava().setSrcDirs(<span class="predefined-type">Arrays</span>.asList(<span class="string"><span class="delimiter">&quot;</span><span class="content">src</span><span class="delimiter">&quot;</span></span>));
+            }
+        }
+    });
+}</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Reacting to plugins should be preferred over blindly applying other plugins if there is not a good reason for assuming that the consuming project has the expected setup. The same concept applies to task types.</p>
+</div>
+<div class="listingblock">
+<div class="title">InhouseConventionWarPlugin.java</div>
+<div class="content">
+<pre class="CodeRay highlight"><code data-lang="java"><span class="directive">public</span> <span class="type">class</span> <span class="class">InhouseConventionWarPlugin</span> <span class="directive">implements</span> Plugin&lt;Project&gt; {
+    <span class="directive">public</span> <span class="type">void</span> apply(Project project) {
+        project.getTasks().withType(War.class, <span class="keyword">new</span> <span class="predefined-type">Action</span>&lt;War&gt;() {
+            <span class="directive">public</span> <span class="type">void</span> execute(War war) {
+                war.setWebXml(project.file(<span class="string"><span class="delimiter">&quot;</span><span class="content">src/someWeb.xml</span><span class="delimiter">&quot;</span></span>));
+            }
+        });
+    }
+}</code></pre>
+</div>
+</div>
+</div>
+<div class="sect2">
+<h3 id="providing_default_dependencies_for_plugins"><a class="anchor" href="#providing_default_dependencies_for_plugins"></a>1.7. Providing default dependencies for plugins</h3>
+<div class="paragraph">
+<p>The implementation of a plugin sometimes requires the use of an external dependency. You might want to automatically download an artifact using Gradle’s dependency management mechanism and later use it in the action of a task type declared in the plugin. Optimally, the plugin implementation doesn’t need to ask the user for the coordinates of that dependency - it can simply predefine a sensible default version.</p>
+</div>
+<div class="paragraph">
+<p>Let’s have a look at an example. You wrote a plugin that downloads files containing data for further processing. The plugin implementation declares a custom configuration that allows for <a href="https://docs.gradle.org/4.0/userguide/dependency_management.html#sec:configuration_defaults">assigning those external dependencies with default dependency coordinates</a>.</p>
+</div>
+<div class="paragraph">
+<p>Please be aware that the code example below currently uses an internal API: convention mapping. Gradle 4.0 will provide a new public API for this purpose. This guide will be updated to reflect the use of the new public API as soon as the release goes out.</p>
+</div>
+<div class="listingblock">
+<div class="title">DataProcessingPlugin.java</div>
+<div class="content">
+<pre class="CodeRay highlight"><code data-lang="java"><span class="directive">public</span> <span class="type">class</span> <span class="class">DataProcessingPlugin</span> <span class="directive">implements</span> Plugin&lt;Project&gt; {
+    <span class="directive">public</span> <span class="type">void</span> apply(Project project) {
+        <span class="directive">final</span> <span class="predefined-type">Configuration</span> config = project.getConfigurations().create(<span class="string"><span class="delimiter">&quot;</span><span class="content">dataFiles</span><span class="delimiter">&quot;</span></span>)
+            .setVisible(<span class="predefined-constant">false</span>)
+            .setDescription(<span class="string"><span class="delimiter">&quot;</span><span class="content">The data artifacts to be processed for this plugin.</span><span class="delimiter">&quot;</span></span>);
+
+        config.defaultDependencies(<span class="keyword">new</span> <span class="predefined-type">Action</span>&lt;DependencySet&gt;() {
+            <span class="directive">public</span> <span class="type">void</span> execute(DependencySet dependencies) {
+                dependencies.add(project.getDependencies().create(<span class="string"><span class="delimiter">&quot;</span><span class="content">com.company:data:1.4.6</span><span class="delimiter">&quot;</span></span>));
+            }
+        });
+
+        project.getTasks().withType(DataProcessing.class, <span class="keyword">new</span> <span class="predefined-type">Action</span>&lt;DataProcessing&gt;() {
+            <span class="directive">public</span> <span class="type">void</span> execute(DataProcessing dataProcessing) {
+                dataProcessing.getConventionMapping().map(<span class="string"><span class="delimiter">&quot;</span><span class="content">dataFiles</span><span class="delimiter">&quot;</span></span>, <span class="keyword">new</span> <span class="predefined-type">Callable</span>&lt;FileCollection&gt;() {
+                    <span class="directive">public</span> FileCollection call() <span class="directive">throws</span> <span class="exception">Exception</span> {
+                        <span class="keyword">return</span> config;
+                    });
+                }
+            });
+        }
+    }
+}</code></pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="title">DataProcessing.java</div>
+<div class="content">
+<pre class="CodeRay highlight"><code data-lang="java"><span class="directive">public</span> <span class="type">class</span> <span class="class">DataProcessing</span> <span class="directive">extends</span> DefaultTask {
+    <span class="directive">private</span> FileCollection dataFiles;
+
+    <span class="annotation">@InputFiles</span>
+    <span class="directive">public</span> FileCollection getDataFiles() {
+        <span class="keyword">return</span> dataFiles;
+    }
+
+    <span class="directive">public</span> <span class="type">void</span> setDataFiles(FileCollection dataFiles) {
+        <span class="local-variable">this</span>.dataFiles = dataFiles;
+    }
+
+    <span class="annotation">@TaskAction</span>
+    <span class="directive">public</span> <span class="type">void</span> process() {
+        <span class="predefined-type">System</span>.out.println(getDataFiles().getFiles());
+    }
+}</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Now, this approach is very convenient for the end user as there’s no need to actively declare a dependency. The plugin already provides all the knowledge about this implementation detail. But what if the user would like to redefine the default dependency. No problem&#8230;&#8203;the plugin also exposes the custom configuration that can be used to assign a different dependency. Effectively, the default dependency is overwritten.</p>
+</div>
+<div class="listingblock">
+<div class="title">build.gradle</div>
+<div class="content">
+<pre class="CodeRay highlight"><code data-lang="groovy">apply <span class="key">plugin</span>: DataProcessingPlugin
+
+dependencies {
+    dataFiles <span class="string"><span class="delimiter">'</span><span class="content">com.company:more-data:2.+</span><span class="delimiter">'</span></span>
+}</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>You will find that this pattern works well for tasks that require an external dependency when the action of the task is actually executed. The method is heavily used for custom tasks that execute an external Ant task like many of the <a href="https://docs.gradle.org/4.0/userguide/standard_plugins.html#sec:software_development_plugins">Gradle core static analysis plugins</a> do e.g. the FindBugs and Checkstyle plugin. In fact those plugins even go further and abstract the version to be used for the external dependency by exposing an extension property (e.g. <code>toolVersion</code> <a href="https://docs.gradle.org/4.0/dsl/org.gradle.testing.jacoco.plugins.JacocoPluginExtension.html#org.gradle.testing.jacoco.plugins.JacocoPluginExtension:toolVersion">in the JaCoCo plugin</a>).</p>
+</div>
+</div>
+<div class="sect2">
+<h3 id="assigning_appropriate_plugin_identifiers"><a class="anchor" href="#assigning_appropriate_plugin_identifiers"></a>1.8. Assigning appropriate plugin identifiers</h3>
+<div class="paragraph">
+<p>A descriptive plugin identifier makes it easy for consumers to apply the plugin to a project. The ID should reflect the purpose of the plugin with a single term. Additionally, a domain name should be added to avoid conflicts between other plugins with similar functionality. In the previous sections, dependencies shows in code examples use the group ID <code>com.company</code>. We could use the same identifier as domain name. In case you are not working with a legal entity or should want to publish a open-source plugin then you can just use the domain name hosting the source code e.g. <code>com.github</code>.</p>
+</div>
+<div class="paragraph">
+<p>When publishing multiple plugins as part of a single JAR artifact (as described in the section <a href="https://guides.gradle.org/designing-gradle-plugins#capabilities-vs-conventions">Capabilities vs. conventions</a>) the same naming conventions should apply. There’s no limitation to the number of plugins that can be registered by identifier and serves as a nice way to group related plugins together. For illustration, the Gradle Android plugin defines two different plugins in the directory <code>src/main/resources/META-INF/gradle-plugins</code>.</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>.
+└── src
+    └── main
+        └── resources
+            └── META-INF
+                └── gradle-plugins
+                    ├── com.android.application.properties
+                    └── com.android.library.properties</pre>
+</div>
+</div>
+</div>
 </div>
 </div>
 <div class="sect1">
@@ -622,7 +622,7 @@ We encourage plugin developers to migrate their plugins to the public API as soo
 </div>
 <div id="footer">
 <div id="footer-text">
-Last updated 2017-06-15 13:15:28 UTC
+Last updated 2017-06-16 12:48:37 UTC
 </div>
 </div>
 </body>
