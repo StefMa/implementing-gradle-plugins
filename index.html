@@ -497,9 +497,6 @@ We encourage plugin developers to migrate their plugins to the public API as soo
 <div class="paragraph">
 <p>Let’s have a look at an example. You wrote a plugin that downloads files containing data for further processing. The plugin implementation declares a custom configuration that allows for <a href="https://docs.gradle.org/4.0/userguide/dependency_management.html#sec:configuration_defaults">assigning those external dependencies with default dependency coordinates</a>.</p>
 </div>
-<div class="paragraph">
-<p>Please be aware that the code example below currently uses an internal API: convention mapping. Gradle 4.0 will provide a new public API for this purpose. This guide will be updated to reflect the use of the new public API as soon as the release goes out.</p>
-</div>
 <div class="listingblock">
 <div class="title">DataProcessingPlugin.java</div>
 <div class="content">
@@ -517,13 +514,9 @@ We encourage plugin developers to migrate their plugins to the public API as soo
 
         project.getTasks().withType(DataProcessing.class, <span class="keyword">new</span> <span class="predefined-type">Action</span>&lt;DataProcessing&gt;() {
             <span class="directive">public</span> <span class="type">void</span> execute(DataProcessing dataProcessing) {
-                dataProcessing.getConventionMapping().map(<span class="string"><span class="delimiter">&quot;</span><span class="content">dataFiles</span><span class="delimiter">&quot;</span></span>, <span class="keyword">new</span> <span class="predefined-type">Callable</span>&lt;FileCollection&gt;() {
-                    <span class="directive">public</span> FileCollection call() <span class="directive">throws</span> <span class="exception">Exception</span> {
-                        <span class="keyword">return</span> config;
-                    });
-                }
-            });
-        }
+                dataProcessing.setDataFiles(config);
+            }
+        });
     }
 }</code></pre>
 </div>
@@ -532,7 +525,11 @@ We encourage plugin developers to migrate their plugins to the public API as soo
 <div class="title">DataProcessing.java</div>
 <div class="content">
 <pre class="CodeRay highlight"><code data-lang="java"><span class="directive">public</span> <span class="type">class</span> <span class="class">DataProcessing</span> <span class="directive">extends</span> DefaultTask {
-    <span class="directive">private</span> FileCollection dataFiles;
+    <span class="directive">private</span> <span class="directive">final</span> ConfigurableFileCollection dataFiles;
+
+    <span class="directive">public</span> DataProcessing() {
+        dataFiles = getProject().files();
+    }
 
     <span class="annotation">@InputFiles</span>
     <span class="directive">public</span> FileCollection getDataFiles() {
@@ -540,7 +537,7 @@ We encourage plugin developers to migrate their plugins to the public API as soo
     }
 
     <span class="directive">public</span> <span class="type">void</span> setDataFiles(FileCollection dataFiles) {
-        <span class="local-variable">this</span>.dataFiles = dataFiles;
+        <span class="local-variable">this</span>.dataFiles.setFrom(dataFiles);
     }
 
     <span class="annotation">@TaskAction</span>
@@ -622,7 +619,7 @@ dependencies {
 </div>
 <div id="footer">
 <div id="footer-text">
-Last updated 2017-06-16 12:48:37 UTC
+Last updated 2017-06-16 13:43:47 UTC
 </div>
 </div>
 </body>
