@@ -470,3 +470,6 @@ Wrote an awesome plugin? Write a tweet to link:https://twitter.com/gradle[@gradl
 There’s far more to Gradle plugins than the actual implementation. You may be interested in:
 
 - {guides}/designing-gradle-plugins[Designing Gradle plugins]
+
+
+include::contribute[]
