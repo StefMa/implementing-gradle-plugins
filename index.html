@@ -47,9 +47,10 @@
 <li><a href="#benefiting_from_incremental_tasks">1.3. Benefiting from incremental tasks</a></li>
 <li><a href="#modeling_dsl_like_apis">1.4. Modeling DSL-like APIs</a></li>
 <li><a href="#capturing_user_input_to_configure_plugin_runtime_behavior">1.5. Capturing user input to configure plugin runtime behavior</a></li>
-<li><a href="#reacting_to_plugins">1.6. Reacting to plugins</a></li>
-<li><a href="#providing_default_dependencies_for_plugins">1.7. Providing default dependencies for plugins</a></li>
-<li><a href="#assigning_appropriate_plugin_identifiers">1.8. Assigning appropriate plugin identifiers</a></li>
+<li><a href="#declaring_a_dsl_configuration_container">1.6. Declaring a DSL configuration container</a></li>
+<li><a href="#reacting_to_plugins">1.7. Reacting to plugins</a></li>
+<li><a href="#providing_default_dependencies_for_plugins">1.8. Providing default dependencies for plugins</a></li>
+<li><a href="#assigning_appropriate_plugin_identifiers">1.9. Assigning appropriate plugin identifiers</a></li>
 </ul>
 </li>
 <li><a href="#summary">2. Summary</a></li>
@@ -434,7 +435,98 @@ We encourage plugin developers to migrate their plugins to the public API as soo
 </div>
 </div>
 <div class="sect2">
-<h3 id="reacting_to_plugins"><a class="anchor" href="#reacting_to_plugins"></a>1.6. Reacting to plugins</h3>
+<h3 id="declaring_a_dsl_configuration_container"><a class="anchor" href="#declaring_a_dsl_configuration_container"></a>1.6. Declaring a DSL configuration container</h3>
+<div class="paragraph">
+<p>Sometimes you might want to expose a way for users to define multiple, named data objects of the same type. Let&#8217;s consider the following build script for illustration purposes.</p>
+</div>
+<div class="listingblock">
+<div class="title">build.gradle</div>
+<div class="content">
+<pre class="CodeRay highlight"><code data-lang="groovy">apply <span class="key">plugin</span>: ServerEnvironmentPlugin
+
+environments {
+    dev {
+        url = <span class="string"><span class="delimiter">'</span><span class="content">http://localhost:8080</span><span class="delimiter">'</span></span>
+    }
+
+    staging {
+        url = <span class="string"><span class="delimiter">'</span><span class="content">http://staging.enterprise.com</span><span class="delimiter">'</span></span>
+    }
+
+    production {
+        url = <span class="string"><span class="delimiter">'</span><span class="content">http://prod.enterprise.com</span><span class="delimiter">'</span></span>
+    }
+}</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>The DSL exposed by the plugin exposes a <em>container</em> for defining a set of environments. Each environment configured by the user has an arbitrary but declarative name and is represented with its own DSL configuration block. The example above instantiates a development, staging and production environment including its respective URL.</p>
+</div>
+<div class="paragraph">
+<p>Obviously, each of these environments needs to have a data representation in code to capture the values. The name of an environment is immutable and can be passed in as constructor parameter. At the moment the only other parameter stored by the data object is an URL. The POJO <code>ServerEnvironment</code> shown below fulfills those requirements.</p>
+</div>
+<div class="listingblock">
+<div class="title">ServerEnvironment.java</div>
+<div class="content">
+<pre class="CodeRay highlight"><code data-lang="java"><span class="directive">public</span> <span class="type">class</span> <span class="class">ServerEnvironment</span> {
+    <span class="directive">private</span> <span class="directive">final</span> <span class="predefined-type">String</span> name;
+    <span class="directive">private</span> <span class="predefined-type">String</span> url;
+
+    <span class="directive">public</span> ServerEnvironment(<span class="predefined-type">String</span> name) {
+        <span class="local-variable">this</span>.name = name;
+    }
+
+    <span class="directive">public</span> <span class="predefined-type">String</span> getName() {
+        <span class="keyword">return</span> name;
+    }
+
+    <span class="directive">public</span> <span class="type">void</span> setUrl(<span class="predefined-type">String</span> url) {
+        <span class="local-variable">this</span>.url = url;
+    }
+
+    <span class="directive">public</span> <span class="predefined-type">String</span> getUrl() {
+        <span class="keyword">return</span> url;
+    }
+}</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Gradle exposes the convenience method <a href="https://docs.gradle.org/4.0/javadoc/org/gradle/api/Project.html#container(java.lang.Class)">Project.html#container(java.lang.Class)</a> to create a container of data objects. The parameter the method takes is the class representing the data. The created instance of type <a href="https://docs.gradle.org/4.0/javadoc/org/gradle/api/NamedDomainObjectContainer.html">NamedDomainObjectContainer</a> can be exposed to the end user by adding it to the extension container with a specific name.</p>
+</div>
+<div class="listingblock">
+<div class="title">ServerEnvironmentPlugin.java</div>
+<div class="content">
+<pre class="CodeRay highlight"><code data-lang="java"><span class="keyword">import</span> <span class="include">org.gradle.api</span>.*;
+
+<span class="directive">public</span> <span class="type">class</span> <span class="class">ServerEnvironmentPlugin</span> <span class="directive">implements</span> Plugin&lt;Project&gt; {
+    <span class="annotation">@Override</span>
+    <span class="directive">public</span> <span class="type">void</span> apply(Project project) {
+        NamedDomainObjectContainer&lt;ServerEnvironment&gt; serverEnvironmentContainer = project.container(ServerEnvironment.class);
+        project.getExtensions().add(<span class="string"><span class="delimiter">&quot;</span><span class="content">environments</span><span class="delimiter">&quot;</span></span>, serverEnvironmentContainer);
+
+        project.afterEvaluate(<span class="keyword">new</span> <span class="predefined-type">Action</span>&lt;Project&gt;() {
+            <span class="directive">public</span> <span class="type">void</span> execute(Project project) {
+                serverEnvironmentContainer.all(<span class="keyword">new</span> <span class="predefined-type">Action</span>&lt;ServerEnvironment&gt;() {
+                    <span class="directive">public</span> <span class="type">void</span> execute(ServerEnvironment serverEnvironment) {
+                        <span class="predefined-type">String</span> env = serverEnvironment.getName();
+                        <span class="predefined-type">String</span> capitalizedServerEnv = env.substring(<span class="integer">0</span>, <span class="integer">1</span>).toUpperCase() + env.substring(<span class="integer">1</span>);
+                        <span class="predefined-type">String</span> taskName = <span class="string"><span class="delimiter">&quot;</span><span class="content">deployTo</span><span class="delimiter">&quot;</span></span> + capitalizedServerEnv;
+                        Deploy deployTask = project.getTasks().create(taskName, Deploy.class);
+                        deployTask.setUrl(serverEnvironment.getUrl());
+                    }
+                });
+            }
+        });
+    }
+}</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>It&#8217;s very common for a plugin to post-process the captured values within the plugin implementation e.g. to configure tasks. In the example above, a deployment task is created dynamically for every environment that was configured by the user.</p>
+</div>
+</div>
+<div class="sect2">
+<h3 id="reacting_to_plugins"><a class="anchor" href="#reacting_to_plugins"></a>1.7. Reacting to plugins</h3>
 <div class="paragraph">
 <p>Configuring the runtime behavior of existing plugins and tasks in a build is a common pattern in Gradle plugin implementations. For example a plugin could assume that it is applied to a Java-based project and automatically reconfigures the standard source directory.</p>
 </div>
@@ -491,7 +583,7 @@ We encourage plugin developers to migrate their plugins to the public API as soo
 </div>
 </div>
 <div class="sect2">
-<h3 id="providing_default_dependencies_for_plugins"><a class="anchor" href="#providing_default_dependencies_for_plugins"></a>1.7. Providing default dependencies for plugins</h3>
+<h3 id="providing_default_dependencies_for_plugins"><a class="anchor" href="#providing_default_dependencies_for_plugins"></a>1.8. Providing default dependencies for plugins</h3>
 <div class="paragraph">
 <p>The implementation of a plugin sometimes requires the use of an external dependency. You might want to automatically download an artifact using Gradle’s dependency management mechanism and later use it in the action of a task type declared in the plugin. Optimally, the plugin implementation doesn’t need to ask the user for the coordinates of that dependency - it can simply predefine a sensible default version.</p>
 </div>
@@ -566,7 +658,7 @@ dependencies {
 </div>
 </div>
 <div class="sect2">
-<h3 id="assigning_appropriate_plugin_identifiers"><a class="anchor" href="#assigning_appropriate_plugin_identifiers"></a>1.8. Assigning appropriate plugin identifiers</h3>
+<h3 id="assigning_appropriate_plugin_identifiers"><a class="anchor" href="#assigning_appropriate_plugin_identifiers"></a>1.9. Assigning appropriate plugin identifiers</h3>
 <div class="paragraph">
 <p>A descriptive plugin identifier makes it easy for consumers to apply the plugin to a project. The ID should reflect the purpose of the plugin with a single term. Additionally, a domain name should be added to avoid conflicts between other plugins with similar functionality. In the previous sections, dependencies shows in code examples use the group ID <code>com.company</code>. We could use the same identifier as domain name. In case you are not working with a legal entity or should want to publish a open-source plugin then you can just use the domain name hosting the source code e.g. <code>com.github</code>.</p>
 </div>
@@ -620,7 +712,7 @@ dependencies {
 </div>
 <div id="footer">
 <div id="footer-text">
-Last updated 2017-07-04 19:26:27 UTC
+Last updated 2017-07-07 21:17:09 UTC
 </div>
 </div>
 </body>
