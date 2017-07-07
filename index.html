@@ -504,14 +504,15 @@ environments {
         NamedDomainObjectContainer&lt;ServerEnvironment&gt; serverEnvironmentContainer = project.container(ServerEnvironment.class);
         project.getExtensions().add(<span class="string"><span class="delimiter">&quot;</span><span class="content">environments</span><span class="delimiter">&quot;</span></span>, serverEnvironmentContainer);
 
-        project.afterEvaluate(<span class="keyword">new</span> <span class="predefined-type">Action</span>&lt;Project&gt;() {
-            <span class="directive">public</span> <span class="type">void</span> execute(Project project) {
-                serverEnvironmentContainer.all(<span class="keyword">new</span> <span class="predefined-type">Action</span>&lt;ServerEnvironment&gt;() {
-                    <span class="directive">public</span> <span class="type">void</span> execute(ServerEnvironment serverEnvironment) {
-                        <span class="predefined-type">String</span> env = serverEnvironment.getName();
-                        <span class="predefined-type">String</span> capitalizedServerEnv = env.substring(<span class="integer">0</span>, <span class="integer">1</span>).toUpperCase() + env.substring(<span class="integer">1</span>);
-                        <span class="predefined-type">String</span> taskName = <span class="string"><span class="delimiter">&quot;</span><span class="content">deployTo</span><span class="delimiter">&quot;</span></span> + capitalizedServerEnv;
-                        Deploy deployTask = project.getTasks().create(taskName, Deploy.class);
+        serverEnvironmentContainer.all(<span class="keyword">new</span> <span class="predefined-type">Action</span>&lt;ServerEnvironment&gt;() {
+            <span class="directive">public</span> <span class="type">void</span> execute(ServerEnvironment serverEnvironment) {
+                <span class="predefined-type">String</span> env = serverEnvironment.getName();
+                <span class="predefined-type">String</span> capitalizedServerEnv = env.substring(<span class="integer">0</span>, <span class="integer">1</span>).toUpperCase() + env.substring(<span class="integer">1</span>);
+                <span class="predefined-type">String</span> taskName = <span class="string"><span class="delimiter">&quot;</span><span class="content">deployTo</span><span class="delimiter">&quot;</span></span> + capitalizedServerEnv;
+                Deploy deployTask = project.getTasks().create(taskName, Deploy.class);
+
+                project.afterEvaluate(<span class="keyword">new</span> <span class="predefined-type">Action</span>&lt;Project&gt;() {
+                    <span class="directive">public</span> <span class="type">void</span> execute(Project project) {
                         deployTask.setUrl(serverEnvironment.getUrl());
                     }
                 });
@@ -712,7 +713,7 @@ dependencies {
 </div>
 <div id="footer">
 <div id="footer-text">
-Last updated 2017-07-07 21:17:09 UTC
+Last updated 2017-07-07 21:35:41 UTC
 </div>
 </div>
 </body>
