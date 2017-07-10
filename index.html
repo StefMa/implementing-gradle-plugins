@@ -118,6 +118,10 @@
 <div class="content">
 <pre class="CodeRay highlight"><code data-lang="java"><span class="keyword">package</span> <span class="namespace">com.company.gradle.binaryrepo</span>;
 
+<span class="keyword">import</span> <span class="include">org.gradle.api.DefaultTask</span>;
+<span class="keyword">import</span> <span class="include">org.gradle.api.tasks.Input</span>;
+<span class="keyword">import</span> <span class="include">org.gradle.api.tasks.TaskAction</span>;
+
 <span class="directive">public</span> <span class="type">class</span> <span class="class">LatestArtifactVersion</span> <span class="directive">extends</span> DefaultTask {
     <span class="directive">private</span> <span class="predefined-type">String</span> coordinates;
     <span class="directive">private</span> <span class="predefined-type">String</span> serverUrl;
@@ -142,6 +146,7 @@
 
     <span class="annotation">@TaskAction</span>
     <span class="directive">public</span> <span class="type">void</span> resolveLatestVersion() {
+        <span class="predefined-type">System</span>.out.println(<span class="string"><span class="delimiter">&quot;</span><span class="content">Retrieving artifact </span><span class="delimiter">&quot;</span></span> + coordinates + <span class="string"><span class="delimiter">&quot;</span><span class="content"> from </span><span class="delimiter">&quot;</span></span> + serverUrl);
         <span class="comment">// issue HTTP call and parse response</span>
     }
 }</code></pre>
@@ -153,9 +158,7 @@
 <div class="listingblock">
 <div class="title">build.gradle</div>
 <div class="content">
-<pre class="CodeRay highlight"><code data-lang="groovy">apply <span class="key">plugin</span>: BinaryRepositoryVersionPlugin
-
-<span class="keyword">import</span> <span class="include">com.company.gradle.binaryrepo.LatestArtifactVersion</span>
+<pre class="CodeRay highlight"><code data-lang="groovy"><span class="keyword">import</span> <span class="include">com.company.gradle.binaryrepo.LatestArtifactVersion</span>
 
 task latestVersionMavenCentral(<span class="key">type</span>: LatestArtifactVersion) {
     coordinates = <span class="string"><span class="delimiter">'</span><span class="content">commons-lang:commons-lang:1.5</span><span class="delimiter">'</span></span>
@@ -163,7 +166,7 @@ task latestVersionMavenCentral(<span class="key">type</span>: LatestArtifactVers
 }
 
 task latestVersionInhouseRepo(<span class="key">type</span>: LatestArtifactVersion) {
-    coordinates = <span class="string"><span class="delimiter">'</span><span class="content">commons-lang:commons-lang:1.5</span><span class="delimiter">'</span></span>
+    coordinates = <span class="string"><span class="delimiter">'</span><span class="content">commons-lang:commons-lang:2.6</span><span class="delimiter">'</span></span>
     serverUrl = <span class="string"><span class="delimiter">'</span><span class="content">http://my.company.com/maven2</span><span class="delimiter">'</span></span>
 }</code></pre>
 </div>
@@ -183,7 +186,17 @@ task latestVersionInhouseRepo(<span class="key">type</span>: LatestArtifactVersi
 <div class="listingblock">
 <div class="title">Generate.java</div>
 <div class="content">
-<pre class="CodeRay highlight"><code data-lang="java"><span class="directive">public</span> <span class="type">class</span> <span class="class">Generate</span> <span class="directive">extends</span> DefaultTask {
+<pre class="CodeRay highlight"><code data-lang="java"><span class="keyword">import</span> <span class="include">java.io.BufferedWriter</span>;
+<span class="keyword">import</span> <span class="include">java.io.File</span>;
+<span class="keyword">import</span> <span class="include">java.io.FileWriter</span>;
+<span class="keyword">import</span> <span class="include">java.io.IOException</span>;
+
+<span class="keyword">import</span> <span class="include">org.gradle.api.DefaultTask</span>;
+<span class="keyword">import</span> <span class="include">org.gradle.api.tasks.Input</span>;
+<span class="keyword">import</span> <span class="include">org.gradle.api.tasks.OutputDirectory</span>;
+<span class="keyword">import</span> <span class="include">org.gradle.api.tasks.TaskAction</span>;
+
+<span class="directive">public</span> <span class="type">class</span> <span class="class">Generate</span> <span class="directive">extends</span> DefaultTask {
     <span class="directive">private</span> <span class="type">int</span> fileCount;
     <span class="directive">private</span> <span class="predefined-type">String</span> content;
     <span class="directive">private</span> <span class="predefined-type">File</span> generatedFileDir;
@@ -198,7 +211,7 @@ task latestVersionInhouseRepo(<span class="key">type</span>: LatestArtifactVersi
     }
 
     <span class="annotation">@Input</span>
-    <span class="directive">public</span> <span class="type">int</span> getContent() {
+    <span class="directive">public</span> <span class="predefined-type">String</span> getContent() {
         <span class="keyword">return</span> content;
     }
 
@@ -216,8 +229,8 @@ task latestVersionInhouseRepo(<span class="key">type</span>: LatestArtifactVersi
     }
 
     <span class="annotation">@TaskAction</span>
-    <span class="directive">public</span> <span class="type">void</span> perform() {
-        <span class="keyword">for</span> (<span class="type">int</span> i = <span class="integer">0</span>; i &lt; fileCount; i++) {
+    <span class="directive">public</span> <span class="type">void</span> perform() <span class="directive">throws</span> <span class="exception">IOException</span> {
+        <span class="keyword">for</span> (<span class="type">int</span> i = <span class="integer">1</span>; i &lt;= fileCount; i++) {
             writeFile(<span class="keyword">new</span> <span class="predefined-type">File</span>(generatedFileDir, i + <span class="string"><span class="delimiter">&quot;</span><span class="content">.txt</span><span class="delimiter">&quot;</span></span>), content);
         }
     }
@@ -248,7 +261,9 @@ task latestVersionInhouseRepo(<span class="key">type</span>: LatestArtifactVersi
 <div class="listingblock">
 <div class="title">build.gradle</div>
 <div class="content">
-<pre class="CodeRay highlight"><code data-lang="groovy">site {
+<pre class="CodeRay highlight"><code data-lang="groovy">apply <span class="key">plugin</span>: SitePlugin
+
+site {
     outputDir = file(<span class="string"><span class="delimiter">'</span><span class="content">build/mysite</span><span class="delimiter">'</span></span>)
     websiteUrl = <span class="string"><span class="delimiter">'</span><span class="content">http://gradle.org</span><span class="delimiter">'</span></span>
     vcsUrl = <span class="string"><span class="delimiter">'</span><span class="content">https://github.com/gradle-guides/gradle-site-plugin</span><span class="delimiter">'</span></span>
@@ -261,7 +276,9 @@ task latestVersionInhouseRepo(<span class="key">type</span>: LatestArtifactVersi
 <div class="listingblock">
 <div class="title">build.gradle</div>
 <div class="content">
-<pre class="CodeRay highlight"><code data-lang="groovy">site {
+<pre class="CodeRay highlight"><code data-lang="groovy">apply <span class="key">plugin</span>: SitePlugin
+
+site {
     outputDir = file(<span class="string"><span class="delimiter">'</span><span class="content">build/mysite</span><span class="delimiter">'</span></span>)
 
     customData {
@@ -281,7 +298,21 @@ task latestVersionInhouseRepo(<span class="key">type</span>: LatestArtifactVersi
     <span class="directive">private</span> <span class="predefined-type">String</span> websiteUrl;
     <span class="directive">private</span> <span class="predefined-type">String</span> vcsUrl;
 
-    <span class="comment">// getter and setter methods</span>
+    <span class="directive">public</span> <span class="type">void</span> setWebsiteUrl(<span class="predefined-type">String</span> websiteUrl) {
+        <span class="local-variable">this</span>.websiteUrl = websiteUrl;
+    }
+
+    <span class="directive">public</span> <span class="predefined-type">String</span> getWebsiteUrl() {
+        <span class="keyword">return</span> websiteUrl;
+    }
+
+    <span class="directive">public</span> <span class="type">void</span> setVcsUrl(<span class="predefined-type">String</span> vcsUrl) {
+        <span class="local-variable">this</span>.vcsUrl = vcsUrl;
+    }
+
+    <span class="directive">public</span> <span class="predefined-type">String</span> getVcsUrl() {
+        <span class="keyword">return</span> vcsUrl;
+    }
 }</code></pre>
 </div>
 </div>
@@ -291,10 +322,24 @@ task latestVersionInhouseRepo(<span class="key">type</span>: LatestArtifactVersi
 <div class="listingblock">
 <div class="title">SiteExtension.java</div>
 <div class="content">
-<pre class="CodeRay highlight"><code data-lang="java"><span class="keyword">import</span> <span class="include">org.gradle.api.Action</span>;
+<pre class="CodeRay highlight"><code data-lang="java"><span class="keyword">import</span> <span class="include">java.io.File</span>;
+<span class="keyword">import</span> <span class="include">org.gradle.api.Action</span>;
 
 <span class="directive">public</span> <span class="type">class</span> <span class="class">SiteExtension</span> {
+    <span class="directive">private</span> <span class="predefined-type">File</span> outputDir;
     <span class="directive">private</span> <span class="directive">final</span> CustomData customData = <span class="keyword">new</span> CustomData();
+
+    <span class="directive">public</span> <span class="type">void</span> setOutputDir(<span class="predefined-type">File</span> outputDir) {
+        <span class="local-variable">this</span>.outputDir = outputDir;
+    }
+
+    <span class="directive">public</span> <span class="predefined-type">File</span> getOutputDir() {
+        <span class="keyword">return</span> outputDir;
+    }
+
+    <span class="directive">public</span> CustomData getCustomData() {
+        <span class="keyword">return</span> customData;
+    }
 
     <span class="directive">public</span> <span class="type">void</span> customData(<span class="predefined-type">Action</span>&lt;? <span class="local-variable">super</span> CustomData&gt; action) {
         action.execute(customData);
@@ -345,9 +390,13 @@ binaryRepo {
 <div class="listingblock">
 <div class="title">BinaryRepositoryVersionPlugin.java</div>
 <div class="content">
-<pre class="CodeRay highlight"><code data-lang="java"><span class="directive">public</span> <span class="type">class</span> <span class="class">BinaryRepositoryVersionPlugin</span> <span class="directive">implements</span> Plugin&lt;Project&gt; {
+<pre class="CodeRay highlight"><code data-lang="java"><span class="keyword">import</span> <span class="include">org.gradle.api.Action</span>;
+<span class="keyword">import</span> <span class="include">org.gradle.api.Plugin</span>;
+<span class="keyword">import</span> <span class="include">org.gradle.api.Project</span>;
+
+<span class="directive">public</span> <span class="type">class</span> <span class="class">BinaryRepositoryVersionPlugin</span> <span class="directive">implements</span> Plugin&lt;Project&gt; {
     <span class="directive">public</span> <span class="type">void</span> apply(Project project) {
-        <span class="directive">final</span> BinaryRepositoryExtension extension = project.getExtensions().create(<span class="string"><span class="delimiter">&quot;</span><span class="content">binaryRepo</span><span class="delimiter">&quot;</span></span>, BinaryRepositoryExtension.class, project);
+        BinaryRepositoryExtension extension = project.getExtensions().create(<span class="string"><span class="delimiter">&quot;</span><span class="content">binaryRepo</span><span class="delimiter">&quot;</span></span>, BinaryRepositoryExtension.class, project);
 
         project.getTasks().create(<span class="string"><span class="delimiter">&quot;</span><span class="content">latestArtifactVersion</span><span class="delimiter">&quot;</span></span>, LatestArtifactVersion.class, <span class="keyword">new</span> <span class="predefined-type">Action</span>&lt;LatestArtifactVersion&gt;() {
             <span class="directive">public</span> <span class="type">void</span> execute(LatestArtifactVersion latestArtifactVersion) {
@@ -364,7 +413,11 @@ binaryRepo {
 <div class="listingblock">
 <div class="title">BinaryRepositoryExtension.java</div>
 <div class="content">
-<pre class="CodeRay highlight"><code data-lang="java"><span class="directive">public</span> <span class="type">class</span> <span class="class">BinaryRepositoryExtension</span> {
+<pre class="CodeRay highlight"><code data-lang="java"><span class="keyword">import</span> <span class="include">org.gradle.api.Project</span>;
+<span class="keyword">import</span> <span class="include">org.gradle.api.provider.PropertyState</span>;
+<span class="keyword">import</span> <span class="include">org.gradle.api.provider.Provider</span>;
+
+<span class="directive">public</span> <span class="type">class</span> <span class="class">BinaryRepositoryExtension</span> {
     <span class="directive">private</span> <span class="directive">final</span> PropertyState&lt;<span class="predefined-type">String</span>&gt; serverUrl;
 
     <span class="directive">public</span> BinaryRepositoryExtension(Project project) {
@@ -391,7 +444,13 @@ binaryRepo {
 <div class="listingblock">
 <div class="title">LatestArtifactVersion.java</div>
 <div class="content">
-<pre class="CodeRay highlight"><code data-lang="java"><span class="directive">public</span> <span class="type">class</span> <span class="class">LatestArtifactVersion</span> <span class="directive">extends</span> DefaultTask {
+<pre class="CodeRay highlight"><code data-lang="java"><span class="keyword">import</span> <span class="include">org.gradle.api.DefaultTask</span>;
+<span class="keyword">import</span> <span class="include">org.gradle.api.provider.PropertyState</span>;
+<span class="keyword">import</span> <span class="include">org.gradle.api.provider.Provider</span>;
+<span class="keyword">import</span> <span class="include">org.gradle.api.tasks.Input</span>;
+<span class="keyword">import</span> <span class="include">org.gradle.api.tasks.TaskAction</span>;
+
+<span class="directive">public</span> <span class="type">class</span> <span class="class">LatestArtifactVersion</span> <span class="directive">extends</span> DefaultTask {
     <span class="directive">private</span> <span class="directive">final</span> PropertyState&lt;<span class="predefined-type">String</span>&gt; serverUrl;
 
     <span class="directive">public</span> LatestArtifactVersion() {
@@ -414,7 +473,7 @@ binaryRepo {
     <span class="annotation">@TaskAction</span>
     <span class="directive">public</span> <span class="type">void</span> resolveLatestVersion() {
         <span class="comment">// Access the raw value during the execution phase of the build lifecycle</span>
-        <span class="predefined-type">String</span> serverUrl = getServerUrl();
+        <span class="predefined-type">System</span>.out.println(<span class="string"><span class="delimiter">&quot;</span><span class="content">Retrieving latest artifact version from URL </span><span class="delimiter">&quot;</span></span> + getServerUrl());
 
         <span class="comment">// do additional work</span>
     }
@@ -534,13 +593,21 @@ environments {
 <div class="listingblock">
 <div class="title">InhouseConventionJavaPlugin.java</div>
 <div class="content">
-<pre class="CodeRay highlight"><code data-lang="java"><span class="directive">public</span> <span class="type">class</span> <span class="class">InhouseConventionJavaPlugin</span> <span class="directive">implements</span> Plugin&lt;Project&gt; {
+<pre class="CodeRay highlight"><code data-lang="java"><span class="keyword">import</span> <span class="include">java.util.Arrays</span>;
+
+<span class="keyword">import</span> <span class="include">org.gradle.api.Plugin</span>;
+<span class="keyword">import</span> <span class="include">org.gradle.api.Project</span>;
+<span class="keyword">import</span> <span class="include">org.gradle.api.plugins.JavaPlugin</span>;
+<span class="keyword">import</span> <span class="include">org.gradle.api.plugins.JavaPluginConvention</span>;
+<span class="keyword">import</span> <span class="include">org.gradle.api.tasks.SourceSet</span>;
+
+<span class="directive">public</span> <span class="type">class</span> <span class="class">InhouseConventionJavaPlugin</span> <span class="directive">implements</span> Plugin&lt;Project&gt; {
     <span class="directive">public</span> <span class="type">void</span> apply(Project project) {
         project.getPlugins().apply(JavaPlugin.class);
         JavaPluginConvention javaConvention =
             project.getConvention().getPlugin(JavaPluginConvention.class);
-        SourceSet main = javaConvention.getSourceSets().create(SourceSet.MAIN_SOURCE_SET_NAME);
-        main.getAllJava().setSrcDirs(<span class="predefined-type">Arrays</span>.asList(<span class="string"><span class="delimiter">&quot;</span><span class="content">src</span><span class="delimiter">&quot;</span></span>));
+        SourceSet main = javaConvention.getSourceSets().getByName(SourceSet.MAIN_SOURCE_SET_NAME);
+        main.getJava().setSrcDirs(<span class="predefined-type">Arrays</span>.asList(<span class="string"><span class="delimiter">&quot;</span><span class="content">src</span><span class="delimiter">&quot;</span></span>));
     }
 }</code></pre>
 </div>
@@ -551,17 +618,26 @@ environments {
 <div class="listingblock">
 <div class="title">InhouseConventionJavaPlugin.java</div>
 <div class="content">
-<pre class="CodeRay highlight"><code data-lang="java"><span class="directive">public</span> <span class="type">class</span> <span class="class">InhouseConventionJavaPlugin</span> <span class="directive">implements</span> Plugin&lt;Project&gt; {
+<pre class="CodeRay highlight"><code data-lang="java"><span class="keyword">import</span> <span class="include">java.util.Arrays</span>;
+
+<span class="keyword">import</span> <span class="include">org.gradle.api.Action</span>;
+<span class="keyword">import</span> <span class="include">org.gradle.api.Plugin</span>;
+<span class="keyword">import</span> <span class="include">org.gradle.api.Project</span>;
+<span class="keyword">import</span> <span class="include">org.gradle.api.plugins.JavaPlugin</span>;
+<span class="keyword">import</span> <span class="include">org.gradle.api.plugins.JavaPluginConvention</span>;
+<span class="keyword">import</span> <span class="include">org.gradle.api.tasks.SourceSet</span>;
+
+<span class="directive">public</span> <span class="type">class</span> <span class="class">InhouseConventionJavaPlugin</span> <span class="directive">implements</span> Plugin&lt;Project&gt; {
     <span class="directive">public</span> <span class="type">void</span> apply(Project project) {
         project.getPlugins().withType(JavaPlugin.class, <span class="keyword">new</span> <span class="predefined-type">Action</span>&lt;JavaPlugin&gt;() {
             <span class="directive">public</span> <span class="type">void</span> execute(JavaPlugin javaPlugin) {
                 JavaPluginConvention javaConvention =
                     project.getConvention().getPlugin(JavaPluginConvention.class);
-                SourceSet main = javaConvention.getSourceSets().create(SourceSet.MAIN_SOURCE_SET_NAME);
-                main.getAllJava().setSrcDirs(<span class="predefined-type">Arrays</span>.asList(<span class="string"><span class="delimiter">&quot;</span><span class="content">src</span><span class="delimiter">&quot;</span></span>));
+                SourceSet main = javaConvention.getSourceSets().getByName(SourceSet.MAIN_SOURCE_SET_NAME);
+                main.getJava().setSrcDirs(<span class="predefined-type">Arrays</span>.asList(<span class="string"><span class="delimiter">&quot;</span><span class="content">src</span><span class="delimiter">&quot;</span></span>));
             }
-        }
-    });
+        });
+    }
 }</code></pre>
 </div>
 </div>
@@ -571,7 +647,12 @@ environments {
 <div class="listingblock">
 <div class="title">InhouseConventionWarPlugin.java</div>
 <div class="content">
-<pre class="CodeRay highlight"><code data-lang="java"><span class="directive">public</span> <span class="type">class</span> <span class="class">InhouseConventionWarPlugin</span> <span class="directive">implements</span> Plugin&lt;Project&gt; {
+<pre class="CodeRay highlight"><code data-lang="java"><span class="keyword">import</span> <span class="include">org.gradle.api.Action</span>;
+<span class="keyword">import</span> <span class="include">org.gradle.api.Plugin</span>;
+<span class="keyword">import</span> <span class="include">org.gradle.api.Project</span>;
+<span class="keyword">import</span> <span class="include">org.gradle.api.tasks.bundling.War</span>;
+
+<span class="directive">public</span> <span class="type">class</span> <span class="class">InhouseConventionWarPlugin</span> <span class="directive">implements</span> Plugin&lt;Project&gt; {
     <span class="directive">public</span> <span class="type">void</span> apply(Project project) {
         project.getTasks().withType(War.class, <span class="keyword">new</span> <span class="predefined-type">Action</span>&lt;War&gt;() {
             <span class="directive">public</span> <span class="type">void</span> execute(War war) {
@@ -594,7 +675,13 @@ environments {
 <div class="listingblock">
 <div class="title">DataProcessingPlugin.java</div>
 <div class="content">
-<pre class="CodeRay highlight"><code data-lang="java"><span class="directive">public</span> <span class="type">class</span> <span class="class">DataProcessingPlugin</span> <span class="directive">implements</span> Plugin&lt;Project&gt; {
+<pre class="CodeRay highlight"><code data-lang="java"><span class="keyword">import</span> <span class="include">org.gradle.api.Action</span>;
+<span class="keyword">import</span> <span class="include">org.gradle.api.Plugin</span>;
+<span class="keyword">import</span> <span class="include">org.gradle.api.Project</span>;
+<span class="keyword">import</span> <span class="include">org.gradle.api.artifacts.Configuration</span>;
+<span class="keyword">import</span> <span class="include">org.gradle.api.artifacts.DependencySet</span>;
+
+<span class="directive">public</span> <span class="type">class</span> <span class="class">DataProcessingPlugin</span> <span class="directive">implements</span> Plugin&lt;Project&gt; {
     <span class="directive">public</span> <span class="type">void</span> apply(Project project) {
         <span class="directive">final</span> <span class="predefined-type">Configuration</span> config = project.getConfigurations().create(<span class="string"><span class="delimiter">&quot;</span><span class="content">dataFiles</span><span class="delimiter">&quot;</span></span>)
             .setVisible(<span class="predefined-constant">false</span>)
@@ -618,7 +705,13 @@ environments {
 <div class="listingblock">
 <div class="title">DataProcessing.java</div>
 <div class="content">
-<pre class="CodeRay highlight"><code data-lang="java"><span class="directive">public</span> <span class="type">class</span> <span class="class">DataProcessing</span> <span class="directive">extends</span> DefaultTask {
+<pre class="CodeRay highlight"><code data-lang="java"><span class="keyword">import</span> <span class="include">org.gradle.api.DefaultTask</span>;
+<span class="keyword">import</span> <span class="include">org.gradle.api.file.ConfigurableFileCollection</span>;
+<span class="keyword">import</span> <span class="include">org.gradle.api.file.FileCollection</span>;
+<span class="keyword">import</span> <span class="include">org.gradle.api.tasks.InputFiles</span>;
+<span class="keyword">import</span> <span class="include">org.gradle.api.tasks.TaskAction</span>;
+
+<span class="directive">public</span> <span class="type">class</span> <span class="class">DataProcessing</span> <span class="directive">extends</span> DefaultTask {
     <span class="directive">private</span> <span class="directive">final</span> ConfigurableFileCollection dataFiles;
 
     <span class="directive">public</span> DataProcessing() {
@@ -650,7 +743,7 @@ environments {
 <pre class="CodeRay highlight"><code data-lang="groovy">apply <span class="key">plugin</span>: DataProcessingPlugin
 
 dependencies {
-    dataFiles <span class="string"><span class="delimiter">'</span><span class="content">com.company:more-data:2.+</span><span class="delimiter">'</span></span>
+    dataFiles <span class="string"><span class="delimiter">'</span><span class="content">com.company:more-data:2.6</span><span class="delimiter">'</span></span>
 }</code></pre>
 </div>
 </div>
@@ -713,7 +806,7 @@ dependencies {
 </div>
 <div id="footer">
 <div id="footer-text">
-Last updated 2017-07-07 21:35:41 UTC
+Last updated 2017-07-10 15:54:32 UTC
 </div>
 </div>
 </body>
