@@ -360,6 +360,15 @@ If you need second- or third-level nesting, you will also have to add overloads 
 </tr>
 </table>
 </div>
+<div class="sect3">
+<h4 id="extensions_vs_conventions"><a class="anchor" href="#extensions_vs_conventions"></a>1.4.1. Extensions vs. Conventions</h4>
+<div class="paragraph">
+<p>Some of the Gradle core plugins expose configurability with the help of a so-called <a href="https://docs.gradle.org/4.3.1/javadoc/org/gradle/api/plugins/Convention.html">Convention</a>. <code>Convention</code> is the preceding concept of an extension and serves a similar purpose. The main difference between both concepts is that <code>Convention</code> does not allow for defining a namespace to model a DSL-like API making it hard to distinguish from the Gradle core DSL. Please avoid using the <code>Convention</code> concept when writing new plugins. The long term plan is to migrate all Gradle core plugins to use extensions and remove the <code>Convention</code> concept altogether.</p>
+</div>
+<div class="paragraph">
+<p>There are situations that require you to interact with a Gradle core plugin that uses <code>Convention`s. You can access the registered convention objects by calling the method `Project.getConvention()</code>. The specific convention implementation for a registered plugin can be retrieved by providing the convention class via <a href="https://docs.gradle.org/4.3.1/javadoc/org/gradle/api/plugins/Convention.html#getPlugin(java.lang.Class)"><code>Convention.getPlugin(Class)</code></a>. The <a href="#convention-api-usage-example">sample code below</a> references the <code>JavaPluginConvention</code> inspect configuration values exposed by the Java plugin.</p>
+</div>
+</div>
 </div>
 <div class="sect2">
 <h3 id="capturing_user_input_to_configure_plugin_runtime_behavior"><a class="anchor" href="#capturing_user_input_to_configure_plugin_runtime_behavior"></a>1.5. Capturing user input to configure plugin runtime behavior</h3>
@@ -592,7 +601,7 @@ environments {
 <div class="paragraph">
 <p>Configuring the runtime behavior of existing plugins and tasks in a build is a common pattern in Gradle plugin implementations. For example a plugin could assume that it is applied to a Java-based project and automatically reconfigures the standard source directory.</p>
 </div>
-<div class="listingblock">
+<div id="convention-api-usage-example" class="listingblock">
 <div class="title">InhouseConventionJavaPlugin.java</div>
 <div class="content">
 <pre class="CodeRay highlight"><code data-lang="java"><span class="keyword">import</span> <span class="include">java.util.Arrays</span>;
@@ -816,7 +825,7 @@ dependencies {
 </div>
 <div id="footer">
 <div id="footer-text">
-Last updated 2017-11-08 17:07:46 +00:00
+Last updated 2017-11-09 17:38:14 +00:00
 </div>
 </div>
 </body>
